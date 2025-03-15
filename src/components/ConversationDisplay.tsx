@@ -186,6 +186,9 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
                     ? "bg-gray-700 border-gray-600 text-white shadow-sm"
                     : message.role === 'assistant'
                     ? "bg-white border border-gray-200 shadow-sm"
+                    : "",
+                  message.role === 'user' && theme === 'dark'
+                    ? "bg-loan-blue/30 text-white"
                     : ""
                 )}
               >
@@ -201,7 +204,8 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
                 <div className="flex-1">
                   <div className={cn(
                     "text-sm",
-                    theme === 'dark' && message.role === 'assistant' ? "text-white" : ""
+                    theme === 'dark' && message.role === 'assistant' ? "text-white" : "",
+                    theme === 'dark' && message.role === 'user' ? "text-white" : ""
                   )}>
                     {formatMessageContent(message.content, message.role)}
                   </div>
