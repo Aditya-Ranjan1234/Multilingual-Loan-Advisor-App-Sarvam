@@ -117,8 +117,8 @@ const getMockResponse = (query: string = ""): string => {
 
 // Initialize or get conversation context
 export const getConversationContext = (): ConversationContext => {
-  // Try to get existing conversation from localStorage
-  const savedConversation = localStorage.getItem('conversationContext');
+  // Try to get existing conversation from sessionStorage (not localStorage)
+  const savedConversation = sessionStorage.getItem('conversationContext');
   if (savedConversation) {
     try {
       return JSON.parse(savedConversation);
@@ -133,7 +133,10 @@ export const getConversationContext = (): ConversationContext => {
 
 // Save conversation context
 export const saveConversationContext = (context: ConversationContext) => {
-  localStorage.setItem('conversationContext', JSON.stringify(context));
+  // Store in memory only for the current session
+  // We're intentionally not using localStorage to prevent persistence across reloads
+  // This is a temporary in-memory storage that will be cleared on page reload
+  sessionStorage.setItem('conversationContext', JSON.stringify(context));
 };
 
 // Function to add a message to the conversation
@@ -146,6 +149,7 @@ export const addMessageToConversation = (message: ConversationMessage): void => 
 // Clear conversation history
 export const clearConversation = () => {
   localStorage.removeItem('conversationContext');
+  sessionStorage.removeItem('conversationContext');
   return { messages: [] };
 };
 

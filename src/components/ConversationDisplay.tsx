@@ -22,6 +22,12 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   
+  // Clear conversation history when component mounts (site loads)
+  useEffect(() => {
+    clearConversation();
+    setConversation([]);
+  }, []);
+  
   // Load conversation history from localStorage
   useEffect(() => {
     const context = getConversationContext();
