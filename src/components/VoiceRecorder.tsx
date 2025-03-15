@@ -4,16 +4,17 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useApiUrl } from '@/contexts/ApiUrlContext';
 import { submitAudioQuery } from '@/services/api';
-import { speechToText } from '@/services/sarvamAI';
+import { speechToText, translateText } from '@/services/sarvamAI';
 import { toast } from '@/components/ui/use-toast';
 
 type VoiceRecorderProps = {
   onResponseReceived: (response: string, shouldPlayAudio: boolean) => void;
   setLoading: (loading: boolean) => void;
+  toggleCalculator?: () => void;
 };
 
-const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) => {
-  const { currentLanguage, translate } = useLanguage();
+const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: VoiceRecorderProps) => {
+  const { currentLanguage, translate, translateDynamic } = useLanguage();
   const { customApiUrl } = useApiUrl();
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
@@ -48,6 +49,38 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
       if (interval) clearInterval(interval);
     };
   }, [isRecording]);
+
+  // Check if text contains eligibility-related keywords
+  const checkForEligibilityKeywords = async (inputText: string): Promise<boolean> => {
+    try {
+      // If the text is already in English, check directly
+      if (currentLanguage.code === 'en-IN') {
+        const lowerText = inputText.toLowerCase();
+        return lowerText.includes('eligib') || 
+               lowerText.includes('qualify') || 
+               lowerText.includes('calculator') ||
+               lowerText.includes('loan amount') ||
+               lowerText.includes('how much loan');
+      }
+      
+      // Otherwise, translate to English first and then check
+      const translatedToEnglish = await translateText({
+        text: inputText,
+        sourceLanguage: currentLanguage.code,
+        targetLanguage: 'en-IN'
+      });
+      
+      const lowerTranslated = translatedToEnglish.toLowerCase();
+      return lowerTranslated.includes('eligib') || 
+             lowerTranslated.includes('qualify') || 
+             lowerTranslated.includes('calculator') ||
+             lowerTranslated.includes('loan amount') ||
+             lowerTranslated.includes('how much loan');
+    } catch (error) {
+      console.error('Error checking eligibility keywords:', error);
+      return false;
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -84,6 +117,9 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
               languageCode: currentLanguage.code
             });
             
+            // Check if the transcribed text is related to loan eligibility
+            const isEligibilityQuery = await checkForEligibilityKeywords(transcribedText);
+            
             // Then, submit the transcribed text to get a response
             setLoading(true);
             const result = await submitAudioQuery({
@@ -92,8 +128,24 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
               text: transcribedText // Pass the transcribed text
             }, customApiUrl);
             
-            // Show the response with audio playback enabled
-            onResponseReceived(result.text, true);
+            // If it's an eligibility query, show the calculator and add a suggestion
+            if (isEligibilityQuery && toggleCalculator) {
+              // Show the calculator
+              toggleCalculator();
+              
+              // Add a suggestion to use the calculator
+              const calculatorSuggestion = await translateDynamic(
+                "I see you're asking about loan eligibility. Please use the Eligibility Calculator at the top of the page to get a personalized estimate based on your income.",
+                currentLanguage.code
+              );
+              
+              // Combine the suggestion with the original response
+              const combinedResponse = `${calculatorSuggestion}\n\n${result.text}`;
+              onResponseReceived(combinedResponse, true);
+            } else {
+              // Show the response with audio playback enabled
+              onResponseReceived(result.text, true);
+            }
           } catch (error) {
             console.error('Error processing audio:', error);
             toast({

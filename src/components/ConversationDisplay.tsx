@@ -5,6 +5,7 @@ import { textToSpeech } from '@/services/sarvamAI';
 import { Button } from '@/components/ui/button';
 import { ConversationMessage, getConversationContext, clearConversation } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
 
 type ConversationDisplayProps = {
   response: string;
@@ -15,6 +16,7 @@ type ConversationDisplayProps = {
 const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: ConversationDisplayProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { currentLanguage, translate } = useLanguage();
+  const { theme } = useTheme();
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -96,14 +98,27 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
   };
 
   return (
-    <div className="w-full rounded-xl overflow-hidden bg-white/90 backdrop-blur-sm border border-gray-200 shadow-sm transition-all">
-      <div className="flex justify-between items-center p-4 border-b border-gray-100">
-        <h3 className="font-medium text-loan-gray-700">{translate('conversation.title')}</h3>
+    <div className={cn(
+      "w-full rounded-xl overflow-hidden backdrop-blur-sm border shadow-sm transition-all",
+      theme === 'dark' 
+        ? "bg-gray-800/90 border-gray-700 text-white" 
+        : "bg-white/90 border-gray-200"
+    )}>
+      <div className={cn(
+        "flex justify-between items-center p-4 border-b",
+        theme === 'dark' ? "border-gray-700" : "border-gray-100"
+      )}>
+        <h3 className={cn(
+          "font-medium",
+          theme === 'dark' ? "text-white" : "text-loan-gray-700"
+        )}>{translate('conversation.title')}</h3>
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={handleClearConversation}
-          className="text-loan-gray-500 hover:text-loan-gray-700"
+          className={cn(
+            theme === 'dark' ? "text-gray-300 hover:text-white" : "text-loan-gray-500 hover:text-loan-gray-700"
+          )}
         >
           {translate('conversation.clear')}
         </Button>
@@ -111,7 +126,10 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
       
       <div className="p-4 min-h-[300px] max-h-[500px] overflow-y-auto">
         {conversation.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-loan-gray-400 text-center p-6">
+          <div className={cn(
+            "h-full flex items-center justify-center text-center p-6",
+            theme === 'dark' ? "text-gray-400" : "text-loan-gray-400"
+          )}>
             {translate('conversation.empty') || 'Start a conversation by typing a message below'}
           </div>
         ) : (
@@ -123,7 +141,9 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
                   "flex gap-3 p-3 rounded-lg max-w-[85%]",
                   message.role === 'user' 
                     ? "ml-auto bg-loan-blue/10 text-loan-gray-800" 
-                    : "bg-white border border-gray-200 shadow-sm"
+                    : theme === 'dark'
+                      ? "bg-gray-700 border-gray-600 text-white shadow-sm"
+                      : "bg-white border border-gray-200 shadow-sm"
                 )}
               >
                 <div className={cn(
@@ -136,7 +156,10 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
                   }
                 </div>
                 <div className="flex-1">
-                  <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                  <div className={cn(
+                    "whitespace-pre-wrap text-sm",
+                    theme === 'dark' && message.role === 'assistant' ? "text-white" : ""
+                  )}>{message.content}</div>
                   {message.role === 'assistant' && (
                     <div className="mt-2 flex justify-end">
                       <Button
@@ -146,9 +169,9 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
                         className="h-6 w-6 p-0 rounded-full"
                       >
                         {isPlaying ? (
-                          <VolumeX size={14} className="text-loan-gray-500" />
+                          <VolumeX size={14} className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-500"} />
                         ) : (
-                          <Volume1 size={14} className="text-loan-gray-500" />
+                          <Volume1 size={14} className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-500"} />
                         )}
                       </Button>
                     </div>
@@ -158,16 +181,33 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
             ))}
             
             {loading && (
-              <div className="flex gap-3 p-3 rounded-lg bg-white border border-gray-200 shadow-sm max-w-[85%]">
+              <div className={cn(
+                "flex gap-3 p-3 rounded-lg max-w-[85%]",
+                theme === 'dark'
+                  ? "bg-gray-700 border-gray-600 shadow-sm"
+                  : "bg-white border border-gray-200 shadow-sm"
+              )}>
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-loan-indigo/20 flex items-center justify-center">
                   <Bot size={16} className="text-loan-indigo" />
                 </div>
                 <div className="flex-1">
-                  <div className="text-loan-gray-500 text-sm">{translate('conversation.processing') || 'Processing your request...'}</div>
+                  <div className={cn(
+                    "text-sm",
+                    theme === 'dark' ? "text-gray-300" : "text-loan-gray-500"
+                  )}>{translate('conversation.processing') || 'Processing your request...'}</div>
                   <div className="mt-1 flex space-x-1">
-                    <div className="w-2 h-2 rounded-full bg-loan-gray-300 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 rounded-full bg-loan-gray-300 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 rounded-full bg-loan-gray-300 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className={cn(
+                      "w-2 h-2 rounded-full animate-bounce",
+                      theme === 'dark' ? "bg-gray-500" : "bg-loan-gray-300"
+                    )} style={{ animationDelay: '0ms' }}></div>
+                    <div className={cn(
+                      "w-2 h-2 rounded-full animate-bounce",
+                      theme === 'dark' ? "bg-gray-500" : "bg-loan-gray-300"
+                    )} style={{ animationDelay: '150ms' }}></div>
+                    <div className={cn(
+                      "w-2 h-2 rounded-full animate-bounce",
+                      theme === 'dark' ? "bg-gray-500" : "bg-loan-gray-300"
+                    )} style={{ animationDelay: '300ms' }}></div>
                   </div>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import LanguageSelector from '@/components/LanguageSelector';
 import TextInput from '@/components/TextInput';
@@ -21,6 +21,7 @@ const Index = () => {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [shouldPlayAudio, setShouldPlayAudio] = useState(false);
+  // Ensure calculator is hidden by default
   const [showCalculator, setShowCalculator] = useState(false);
   const { translate } = useLanguage();
 
@@ -47,15 +48,17 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center gap-1" 
-                onClick={toggleCalculator}
-              >
-                <Calculator size={16} />
-                <span className="hidden sm:inline">{translate('calculator.button')}</span>
-              </Button>
+              {!showCalculator && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1" 
+                  onClick={toggleCalculator}
+                >
+                  <Calculator size={16} />
+                  <span className="hidden sm:inline">{translate('calculator.button')}</span>
+                </Button>
+              )}
             </div>
           </div>
           
@@ -106,6 +109,7 @@ const Index = () => {
                   <TextInput 
                     onResponseReceived={handleResponseReceived}
                     setLoading={setLoading}
+                    toggleCalculator={toggleCalculator}
                   />
                 </TabsContent>
                 
@@ -113,6 +117,7 @@ const Index = () => {
                   <VoiceRecorder 
                     onResponseReceived={handleResponseReceived}
                     setLoading={setLoading}
+                    toggleCalculator={toggleCalculator}
                   />
                 </TabsContent>
               </Tabs>
