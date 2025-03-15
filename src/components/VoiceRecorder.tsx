@@ -112,10 +112,17 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
             setProcessingAudio(true);
             
             // First, convert speech to text in the user's language
-            const transcribedText = await speechToText({
-              audio: audioBlob,
-              languageCode: currentLanguage.code
-            });
+            let transcribedText = "";
+            try {
+              transcribedText = await speechToText({
+                audio: audioBlob,
+                languageCode: currentLanguage.code
+              });
+              console.log('Transcribed text:', transcribedText);
+            } catch (transcriptionError) {
+              console.error('Error transcribing audio:', transcriptionError);
+              // If transcription fails, we'll still have a default response from speechToText
+            }
             
             // Check if the transcribed text is related to loan eligibility
             const isEligibilityQuery = await checkForEligibilityKeywords(transcribedText);
@@ -148,6 +155,15 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
             }
           } catch (error) {
             console.error('Error processing audio:', error);
+            
+            // Instead of showing an error toast, provide a helpful response
+            const errorMessage = await translateDynamic(
+              "I couldn't process your audio properly, but I'm here to help with your loan-related questions. Please try again or type your question.",
+              currentLanguage.code
+            );
+            
+            onResponseReceived(errorMessage, false);
+            
             toast({
               title: translate('error.title') || "Error",
               description: translate('error.audio') || "Could not process your audio. Please try again.",

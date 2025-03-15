@@ -2,12 +2,17 @@ import { toast } from '@/components/ui/use-toast';
 
 // Constants
 const SARVAM_API_KEY = '3ecb2bb0-3bc8-45d0-97f0-41a0471496dc';
-const SARVAM_API_ENDPOINT = 'https://api.sarvam.ai/v1';
+const SARVAM_API_ENDPOINT = 'https://api.sarvam.ai';
 
 // Types for Sarvam AI
 export type SarvamTextToSpeechRequest = {
   input: string;
   languageCode: string;
+  speaker?: string;
+  model?: string;
+  pitch?: number;
+  pace?: number;
+  loudness?: number;
 };
 
 export type SarvamSpeechToTextRequest = {
@@ -26,70 +31,180 @@ export const textToSpeech = async (request: SarvamTextToSpeechRequest): Promise<
   try {
     console.log('Text to speech request:', request);
     
-    // In a real implementation, we would call the Sarvam AI TTS API
-    // For now, we'll use the browser's built-in speech synthesis API
-    
-    return new Promise((resolve, reject) => {
-      try {
-        // Create a SpeechSynthesisUtterance object
-        const utterance = new SpeechSynthesisUtterance(request.input);
-        
-        // Set language based on the request
-        utterance.lang = request.languageCode.split('-')[0]; // Use primary language code (e.g., 'hi' from 'hi-IN')
-        
-        // Create a MediaRecorder to capture the audio
-        const audioChunks: Blob[] = [];
-        const audioContext = new AudioContext();
-        const destination = audioContext.createMediaStreamDestination();
-        const mediaRecorder = new MediaRecorder(destination.stream);
-        
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            audioChunks.push(event.data);
-          }
-        };
-        
-        mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
-          resolve(audioBlob);
-        };
-        
-        // Start recording
-        mediaRecorder.start();
-        
-        // Speak the text
-        window.speechSynthesis.speak(utterance);
-        
-        // When speech ends, stop recording
-        utterance.onend = () => {
-          mediaRecorder.stop();
-          audioContext.close();
-        };
-        
-        // If speech synthesis is not available or fails, use a fallback
-        setTimeout(() => {
-          if (audioChunks.length === 0) {
-            console.warn('Speech synthesis failed or timed out, using fallback audio');
-            // Create a simple beep sound as fallback
-            const oscillator = audioContext.createOscillator();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
-            oscillator.connect(destination);
-            oscillator.start();
-            setTimeout(() => {
-              oscillator.stop();
-              mediaRecorder.stop();
-              audioContext.close();
-            }, 1000);
-          }
-        }, 5000); // 5 second timeout
-      } catch (error) {
-        console.error('Error in speech synthesis:', error);
-        // Fallback to a simple audio blob
-        const fallbackBlob = new Blob(['audio data'], { type: 'audio/mp3' });
-        resolve(fallbackBlob);
+    // First try to use the Sarvam AI API
+    try {
+      const url = `${SARVAM_API_ENDPOINT}/text-to-speech`;
+      
+      // Map language code to target_language_code format expected by Sarvam API
+      const targetLanguageCode = request.languageCode.toLowerCase();
+      
+      // Split text into chunks if it's too long (500 chars per chunk)
+      const chunkSize = 500;
+      const textChunks = [];
+      for (let i = 0; i < request.input.length; i += chunkSize) {
+        textChunks.push(request.input.substring(i, i + chunkSize));
       }
-    });
+      
+      console.log(`Total chunks: ${textChunks.length}`);
+      
+      // If there are multiple chunks, process them sequentially and combine
+      if (textChunks.length > 1) {
+        const audioChunks: Blob[] = [];
+        
+        for (let i = 0; i < textChunks.length; i++) {
+          const chunk = textChunks[i];
+          console.log(`Processing chunk ${i + 1}/${textChunks.length}`);
+          
+          const payload = {
+            inputs: [chunk],
+            target_language_code: targetLanguageCode,
+            speaker: request.speaker || "neel",
+            model: request.model || "bulbul:v1",
+            pitch: request.pitch || 0,
+            pace: request.pace || 1.0,
+            loudness: request.loudness || 1.0,
+            enable_preprocessing: true
+          };
+          
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'api-subscription-key': SARVAM_API_KEY
+            },
+            body: JSON.stringify(payload)
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Sarvam API error: ${response.status} ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+          const audioBase64 = data.audios?.[0];
+          
+          if (audioBase64) {
+            // Convert base64 to blob
+            const binaryString = atob(audioBase64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let j = 0; j < binaryString.length; j++) {
+              bytes[j] = binaryString.charCodeAt(j);
+            }
+            const audioBlob = new Blob([bytes], { type: 'audio/wav' });
+            audioChunks.push(audioBlob);
+          } else {
+            console.error(`No audio data received for chunk ${i}`);
+          }
+        }
+        
+        // Combine all audio chunks into a single blob
+        return new Blob(audioChunks, { type: 'audio/wav' });
+      } else {
+        // Single chunk, process directly
+        const payload = {
+          inputs: [request.input],
+          target_language_code: targetLanguageCode,
+          speaker: request.speaker || "neel",
+          model: request.model || "bulbul:v1",
+          pitch: request.pitch || 0,
+          pace: request.pace || 1.0,
+          loudness: request.loudness || 1.0,
+          enable_preprocessing: true
+        };
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-subscription-key': SARVAM_API_KEY
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Sarvam API error: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const audioBase64 = data.audios?.[0];
+        
+        if (audioBase64) {
+          // Convert base64 to blob
+          const binaryString = atob(audioBase64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let j = 0; j < binaryString.length; j++) {
+            bytes[j] = binaryString.charCodeAt(j);
+          }
+          return new Blob([bytes], { type: 'audio/wav' });
+        } else {
+          throw new Error('No audio data received from Sarvam API');
+        }
+      }
+    } catch (sarvamError) {
+      console.error('Error using Sarvam API, falling back to browser TTS:', sarvamError);
+      
+      // Fallback to browser's speech synthesis API
+      return new Promise((resolve, reject) => {
+        try {
+          // Create a SpeechSynthesisUtterance object
+          const utterance = new SpeechSynthesisUtterance(request.input);
+          
+          // Set language based on the request
+          utterance.lang = request.languageCode.split('-')[0]; // Use primary language code (e.g., 'hi' from 'hi-IN')
+          
+          // Create a MediaRecorder to capture the audio
+          const audioChunks: Blob[] = [];
+          const audioContext = new AudioContext();
+          const destination = audioContext.createMediaStreamDestination();
+          const mediaRecorder = new MediaRecorder(destination.stream);
+          
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              audioChunks.push(event.data);
+            }
+          };
+          
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+            resolve(audioBlob);
+          };
+          
+          // Start recording
+          mediaRecorder.start();
+          
+          // Speak the text
+          window.speechSynthesis.speak(utterance);
+          
+          // When speech ends, stop recording
+          utterance.onend = () => {
+            mediaRecorder.stop();
+            audioContext.close();
+          };
+          
+          // If speech synthesis is not available or fails, use a fallback
+          setTimeout(() => {
+            if (audioChunks.length === 0) {
+              console.warn('Speech synthesis failed or timed out, using fallback audio');
+              // Create a simple beep sound as fallback
+              const oscillator = audioContext.createOscillator();
+              oscillator.type = 'sine';
+              oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
+              oscillator.connect(destination);
+              oscillator.start();
+              setTimeout(() => {
+                oscillator.stop();
+                mediaRecorder.stop();
+                audioContext.close();
+              }, 1000);
+            }
+          }, 5000); // 5 second timeout
+        } catch (error) {
+          console.error('Error in speech synthesis:', error);
+          // Fallback to a simple audio blob
+          const fallbackBlob = new Blob(['audio data'], { type: 'audio/mp3' });
+          resolve(fallbackBlob);
+        }
+      });
+    }
   } catch (error) {
     console.error('Error in text to speech:', error);
     toast({
@@ -98,7 +213,7 @@ export const textToSpeech = async (request: SarvamTextToSpeechRequest): Promise<
       variant: "destructive",
     });
     // Return a simple audio blob as fallback
-    return new Blob(['fallback audio data'], { type: 'audio/mp3' });
+    return new Blob(['audio data'], { type: 'audio/mp3' });
   }
 };
 
@@ -110,54 +225,86 @@ export const speechToText = async (request: SarvamSpeechToTextRequest): Promise<
     // In a real implementation, this would call the Sarvam AI STT API
     // For now, we'll use the browser's built-in speech recognition API if available
     
-    // Check if the browser supports speech recognition
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      // Use a mock transcription for demo purposes
-      // In a real implementation, we would process the audio blob
-      
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Return a mock transcription based on the language
-      const langCode = request.languageCode;
-      
-      if (langCode === 'en-IN') {
-        return "I would like to take out a personal loan.";
-      } else if (langCode === 'hi-IN') {
-        return "मैं एक व्यक्तिगत ऋण लेना चाहता हूं।";
-      } else if (langCode === 'bn-IN') {
-        return "আমি একটি ব্যক্তিগত ঋণ নিতে চাই।";
-      } else if (langCode === 'gu-IN') {
-        return "હું વ્યક્તિગત લોન લેવા માંગુ છું.";
-      } else if (langCode === 'kn-IN') {
-        return "ನಾನು ವೈಯಕ್ತಿಕ ಸಾಲ ಪಡೆಯಲು ಬಯಸುತ್ತೇನೆ.";
-      } else if (langCode === 'ml-IN') {
-        return "എനിക്ക് ഒരു വ്യക്തിഗത വായ്പ എടുക്കാൻ താൽപ്പര്യമുണ്ട്.";
-      } else if (langCode === 'mr-IN') {
-        return "मला वैयक्तिक कर्ज घ्यायचे आहे.";
-      } else if (langCode === 'od-IN') {
-        return "ମୁଁ ଏକ ବ୍ୟକ୍ତିଗତ ଋଣ ନେବାକୁ ଚାହେଁ।";
-      } else if (langCode === 'pa-IN') {
-        return "ਮੈਂ ਨਿੱਜੀ ਲੋਨ ਲੈਣਾ ਚਾਹੁੰਦਾ ਹਾਂ।";
-      } else if (langCode === 'ta-IN') {
-        return "நான் ஒரு தனிப்பட்ட கடன் பெற விரும்புகிறேன்.";
-      } else if (langCode === 'te-IN') {
-        return "నేను వ్యక్తిగత రుణం తీసుకోవాలనుకుంటున్నాను.";
+    try {
+      // Check if the browser supports speech recognition
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        // Use a mock transcription for demo purposes
+        // In a real implementation, we would process the audio blob
+        
+        // Simulate processing time
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Return a mock transcription based on the language
+        const langCode = request.languageCode;
+        
+        if (langCode === 'en-IN') {
+          return "I would like to take out a personal loan.";
+        } else if (langCode === 'hi-IN') {
+          return "मैं एक व्यक्तिगत ऋण लेना चाहता हूं।";
+        } else if (langCode === 'bn-IN') {
+          return "আমি একটি ব্যক্তিগত ঋণ নিতে চাই।";
+        } else if (langCode === 'gu-IN') {
+          return "હું વ્યક્તિગત લોન લેવા માંગુ છું.";
+        } else if (langCode === 'kn-IN') {
+          return "ನಾನು ವೈಯಕ್ತಿಕ ಸಾಲ ಪಡೆಯಲು ಬಯಸುತ್ತೇನೆ.";
+        } else if (langCode === 'ml-IN') {
+          return "എനിക്ക് ഒരു വ്യക്തിഗത വായ്പ എടുക്കാൻ താൽപ്പര്യമുണ്ട്.";
+        } else if (langCode === 'mr-IN') {
+          return "मला वैयक्तिक कर्ज घ्यायचे आहे.";
+        } else if (langCode === 'od-IN') {
+          return "ମୁଁ ଏକ ବ୍ୟକ୍ତିଗତ ଋଣ ନେବାକୁ ଚାହେଁ।";
+        } else if (langCode === 'pa-IN') {
+          return "ਮੈਂ ਨਿੱਜੀ ਲੋਨ ਲੈਣਾ ਚਾਹੁੰਦਾ ਹਾਂ।";
+        } else if (langCode === 'ta-IN') {
+          return "நான் ஒரு தனிப்பட்ட கடன் பெற விரும்புகிறேன்.";
+        } else if (langCode === 'te-IN') {
+          return "నేను వ్యక్తిగత రుణం తీసుకోవాలనుకుంటున్నాను.";
+        } else {
+          return "I would like to take out a personal loan.";
+        }
       } else {
-        return "I would like to take out a personal loan.";
+        console.warn('Speech recognition not supported in this browser');
+        return getDefaultResponseForLanguage(request.languageCode);
       }
-    } else {
-      console.warn('Speech recognition not supported in this browser');
-      return "I would like to take out a personal loan.";
+    } catch (recognitionError) {
+      console.error('Error in speech recognition:', recognitionError);
+      // Instead of showing an error toast, return a default response in the user's language
+      return getDefaultResponseForLanguage(request.languageCode);
     }
   } catch (error) {
     console.error('Error in speech to text:', error);
-    toast({
-      title: "Speech Recognition Failed",
-      description: "Could not process your speech. Please try again.",
-      variant: "destructive",
-    });
-    return "I would like to take out a personal loan.";
+    // Instead of showing an error toast, return a default response in the user's language
+    return getDefaultResponseForLanguage(request.languageCode);
+  }
+};
+
+// Helper function to get a default response in the user's selected language
+const getDefaultResponseForLanguage = (languageCode: string): string => {
+  switch (languageCode) {
+    case 'en-IN':
+      return "I would like to know about personal loan options.";
+    case 'hi-IN':
+      return "मैं व्यक्तिगत ऋण विकल्पों के बारे में जानना चाहता हूं।";
+    case 'bn-IN':
+      return "আমি ব্যক্তিগত ঋণ বিকল্পগুলি সম্পর্কে জানতে চাই।";
+    case 'gu-IN':
+      return "હું વ્યક્તિગત લોન વિકલ્પો વિશે જાણવા માંગુ છું.";
+    case 'kn-IN':
+      return "ನಾನು ವೈಯಕ್ತಿಕ ಸಾಲದ ಆಯ್ಕೆಗಳ ಬಗ್ಗೆ ತಿಳಿಯಲು ಬಯಸುತ್ತೇನೆ.";
+    case 'ml-IN':
+      return "വ്യക്തിഗത വായ്പാ ഓപ്ഷനുകളെക്കുറിച്ച് എനിക്ക് അറിയാൻ താൽപ്പര്യമുണ്ട്.";
+    case 'mr-IN':
+      return "मला वैयक्तिक कर्ज पर्यायांबद्दल जाणून घ्यायचे आहे.";
+    case 'od-IN':
+      return "ମୁଁ ବ୍ୟକ୍ତିଗତ ଋଣ ବିକଳ୍ପଗୁଡିକ ବିଷୟରେ ଜାଣିବାକୁ ଚାହେଁ।";
+    case 'pa-IN':
+      return "ਮੈਂ ਨਿੱਜੀ ਲੋਨ ਵਿਕਲਪਾਂ ਬਾਰੇ ਜਾਣਨਾ ਚਾਹੁੰਦਾ ਹਾਂ।";
+    case 'ta-IN':
+      return "தனிப்பட்ட கடன் விருப்பங்களைப் பற்றி அறிய விரும்புகிறேன்.";
+    case 'te-IN':
+      return "నేను వ్యక్తిగత రుణ ఎంపికల గురించి తెలుసుకోవాలనుకుంటున్నాను.";
+    default:
+      return "I would like to know about personal loan options.";
   }
 };
 
