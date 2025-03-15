@@ -23,61 +23,78 @@ export type ConversationContext = {
 // CORS proxy options to use if direct requests fail
 const CORS_PROXIES = [
   'https://corsproxy.io/?',
-  'https://cors-anywhere.herokuapp.com/',
-  'https://api.allorigins.win/raw?url='
+  'https://api.allorigins.win/raw?url=',
+  'https://cors.bridged.cc/'
 ];
 
 // Function to try a request with different CORS proxies
 const fetchWithCorsProxy = async (url: string, options: RequestInit): Promise<Response> => {
-  // First try direct request with cors mode
-  try {
-    console.log('Trying direct request with cors mode');
-    const response = await fetch(url, {
-      ...options,
-      mode: 'cors'
-    });
-    return response;
-  } catch (corsError) {
-    console.log('Direct request with cors mode failed:', corsError);
-    
-    // Try with no-cors mode (this will result in an opaque response)
+  // Always use a CORS proxy for external API requests to avoid CORS issues
+  console.log('Using CORS proxy for request to:', url);
+  
+  // Try each proxy in sequence until one works
+  let lastError: Error | null = null;
+  
+  for (const proxy of CORS_PROXIES) {
     try {
-      console.log('Trying direct request with no-cors mode');
-      const response = await fetch(url, {
-        ...options,
-        mode: 'no-cors',
-        // Remove headers that aren't allowed in no-cors mode
-        headers: {}
-      });
+      const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
+      console.log(`Trying with proxy: ${proxy}`);
       
-      // Note: no-cors mode returns an opaque response that can't be read
-      // We'll return it anyway and handle it in the calling function
-      return response;
-    } catch (noCorsError) {
-      console.log('Direct request with no-cors mode failed:', noCorsError);
+      // Clone the options to avoid modifying the original
+      const proxyOptions = { ...options };
       
-      // If direct requests fail, try with CORS proxies
-      for (const proxy of CORS_PROXIES) {
-        try {
-          const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
-          console.log(`Trying with proxy: ${proxy}`);
-          const response = await fetch(proxyUrl, {
-            ...options,
-            mode: 'cors'
-          });
-          if (response.ok) {
-            console.log(`Request succeeded with proxy: ${proxy}`);
-            return response;
-          }
-        } catch (proxyError) {
-          console.error(`Proxy ${proxy} failed:`, proxyError);
+      // Remove problematic headers that might cause CORS issues
+      if (proxyOptions.headers) {
+        const safeHeaders: Record<string, string> = {};
+        const originalHeaders = proxyOptions.headers as Record<string, string>;
+        
+        // Only keep safe headers
+        if (originalHeaders['Content-Type']) {
+          safeHeaders['Content-Type'] = originalHeaders['Content-Type'];
         }
+        if (originalHeaders['Accept']) {
+          safeHeaders['Accept'] = originalHeaders['Accept'];
+        }
+        
+        proxyOptions.headers = safeHeaders;
       }
       
-      // If all proxies fail, throw error
-      throw new Error('All request attempts failed, including CORS proxies');
+      // Set mode to cors explicitly
+      proxyOptions.mode = 'cors';
+      
+      // Make the request through the proxy
+      const response = await fetch(proxyUrl, proxyOptions);
+      
+      if (response.ok) {
+        console.log(`Request succeeded with proxy: ${proxy}`);
+        return response;
+      } else {
+        console.warn(`Proxy ${proxy} returned status ${response.status}`);
+        lastError = new Error(`Proxy ${proxy} returned status ${response.status}`);
+      }
+    } catch (proxyError) {
+      console.error(`Proxy ${proxy} failed:`, proxyError);
+      lastError = proxyError as Error;
     }
   }
+  
+  // If we get here, all proxies failed
+  console.error('All CORS proxies failed, falling back to mock response');
+  
+  // Create a mock response that indicates failure but can be handled gracefully
+  const mockResponseBody = JSON.stringify({
+    error: 'CORS_ERROR',
+    message: 'Could not access the API due to CORS restrictions. Using fallback response.',
+    fallback: true
+  });
+  
+  // Return a Response object that our code can handle
+  return new Response(mockResponseBody, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
 };
 
 // Mock API responses - used as fallback if API call fails
@@ -193,10 +210,13 @@ export const submitTextQuery = async (
       body: JSON.stringify(payload)
     });
     
-    // Check if response is opaque (from no-cors mode)
-    if (response.type === 'opaque') {
-      console.log('Received opaque response from no-cors mode, using mock response');
-      // Use mock response since we can't read opaque responses
+    // Process response
+    const data = await response.json();
+    
+    // Check if this is our fallback response from the CORS proxy
+    if (data.fallback || data.error === 'CORS_ERROR') {
+      console.log('Received fallback response due to CORS issues, using mock response');
+      // Use mock response since we couldn't access the actual API
       const mockResponse = getMockResponse(translatedInput);
       
       // Add assistant message to conversation
@@ -216,31 +236,23 @@ export const submitTextQuery = async (
     }
     
     // Process normal response
-    if (response.ok) {
-      const data = await response.json();
-      console.log('API response:', data);
-      
-      // Translate response back to user's language if needed
-      const translatedResponse = language.code === 'en' 
-        ? data.response 
-        : await translateText(data.response, 'en', language.code);
-      
-      // Add assistant message to conversation
-      addMessageToConversation({
-        role: 'assistant',
-        content: translatedResponse
-      });
-      
-      return {
-        text: translatedResponse,
-        shouldPlayAudio: data.should_play_audio ?? true
-      };
-    } else {
-      // Handle error response
-      const errorText = await response.text();
-      console.error('API error:', response.status, errorText);
-      throw new Error(`API error: ${response.status} - ${errorText}`);
-    }
+    console.log('API response:', data);
+    
+    // Translate response back to user's language if needed
+    const translatedResponse = language.code === 'en' 
+      ? data.response 
+      : await translateText(data.response, 'en', language.code);
+    
+    // Add assistant message to conversation
+    addMessageToConversation({
+      role: 'assistant',
+      content: translatedResponse
+    });
+    
+    return {
+      text: translatedResponse,
+      shouldPlayAudio: data.should_play_audio ?? true
+    };
   } catch (error) {
     console.error('Error in submitTextQuery:', error);
     
@@ -323,10 +335,13 @@ export const submitAudioQuery = async (
       body: formData
     });
     
-    // Check if response is opaque (from no-cors mode)
-    if (response.type === 'opaque') {
-      console.log('Received opaque response from no-cors mode, using mock response');
-      // Use mock response since we can't read opaque responses
+    // Process response
+    const data = await response.json();
+    
+    // Check if this is our fallback response from the CORS proxy
+    if (data.fallback || data.error === 'CORS_ERROR') {
+      console.log('Received fallback response due to CORS issues, using mock response');
+      // Use mock response since we couldn't access the actual API
       const mockResponse = getMockResponse(translatedInput);
       
       // Add assistant message to conversation
@@ -346,31 +361,23 @@ export const submitAudioQuery = async (
     }
     
     // Process normal response
-    if (response.ok) {
-      const data = await response.json();
-      console.log('API response:', data);
-      
-      // Translate response back to user's language if needed
-      const translatedResponse = language.code === 'en' 
-        ? data.response 
-        : await translateText(data.response, 'en', language.code);
-      
-      // Add assistant message to conversation
-      addMessageToConversation({
-        role: 'assistant',
-        content: translatedResponse
-      });
-      
-      return {
-        text: translatedResponse,
-        shouldPlayAudio: data.should_play_audio ?? true
-      };
-    } else {
-      // Handle error response
-      const errorText = await response.text();
-      console.error('API error:', response.status, errorText);
-      throw new Error(`API error: ${response.status} - ${errorText}`);
-    }
+    console.log('API response:', data);
+    
+    // Translate response back to user's language if needed
+    const translatedResponse = language.code === 'en' 
+      ? data.response 
+      : await translateText(data.response, 'en', language.code);
+    
+    // Add assistant message to conversation
+    addMessageToConversation({
+      role: 'assistant',
+      content: translatedResponse
+    });
+    
+    return {
+      text: translatedResponse,
+      shouldPlayAudio: data.should_play_audio ?? true
+    };
   } catch (error) {
     console.error('Error in submitAudioQuery:', error);
     
