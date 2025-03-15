@@ -4,12 +4,15 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useApiUrl } from '@/contexts/ApiUrlContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { toast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 const ApiUrlInput = () => {
   const { customApiUrl, setCustomApiUrl } = useApiUrl();
   const { translate } = useLanguage();
+  const { theme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(customApiUrl);
   const [error, setError] = useState('');
@@ -45,9 +48,17 @@ const ApiUrlInput = () => {
   };
 
   return (
-    <div className="mb-6 space-y-2">
+    <div className={cn(
+      "mb-6 space-y-2 p-4 rounded-lg border",
+      theme === 'dark' 
+        ? "bg-gray-800 border-gray-700 text-white" 
+        : "bg-white border-gray-200"
+    )}>
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium text-loan-gray-700">
+        <div className={cn(
+          "text-sm font-medium",
+          theme === 'dark' ? "text-white" : "text-loan-gray-700"
+        )}>
           {translate('api.customUrl')}
         </div>
         {!isEditing && (
@@ -55,7 +66,10 @@ const ApiUrlInput = () => {
             variant="ghost" 
             size="sm" 
             onClick={() => setShowCorsInfo(!showCorsInfo)}
-            className="text-xs text-loan-blue"
+            className={cn(
+              "text-xs",
+              theme === 'dark' ? "text-blue-400 hover:text-blue-300" : "text-loan-blue"
+            )}
           >
             <Info size={14} className="mr-1" />
             CORS Info
@@ -64,7 +78,12 @@ const ApiUrlInput = () => {
       </div>
 
       {showCorsInfo && (
-        <Alert className="bg-blue-50 text-blue-800 border-blue-200 text-xs">
+        <Alert className={cn(
+          "text-xs",
+          theme === 'dark' 
+            ? "bg-gray-700 text-blue-300 border-blue-800" 
+            : "bg-blue-50 text-blue-800 border-blue-200"
+        )}>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>About CORS and API Format</AlertTitle>
           <AlertDescription className="mt-2">
@@ -72,15 +91,24 @@ const ApiUrlInput = () => {
             <p className="mb-1">This app uses CORS proxies to handle these restrictions, but for best results:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Ensure your API server has CORS enabled</li>
-              <li>For ngrok endpoints, use <code className="bg-blue-100 px-1 rounded">ngrok http --cors-enabled 8000</code></li>
+              <li>For ngrok endpoints, use <code className={cn(
+                "px-1 rounded",
+                theme === 'dark' ? "bg-gray-600" : "bg-blue-100"
+              )}>ngrok http --cors-enabled 8000</code></li>
               <li>If using a custom server, add appropriate CORS headers</li>
             </ul>
             <p className="mt-1">If CORS issues persist, the app will use fallback responses.</p>
             
-            <div className="mt-3 border-t border-blue-200 pt-2">
+            <div className={cn(
+              "mt-3 pt-2 border-t",
+              theme === 'dark' ? "border-gray-600" : "border-blue-200"
+            )}>
               <p className="font-medium mb-1">Expected API Format:</p>
               <p className="mb-1">Request:</p>
-              <pre className="bg-blue-100 p-1 rounded text-xs overflow-auto mb-2">
+              <pre className={cn(
+                "p-1 rounded text-xs overflow-auto mb-2",
+                theme === 'dark' ? "bg-gray-600" : "bg-blue-100"
+              )}>
                 {`POST ${customApiUrl}/ask
 {
   "question": "user input text",
@@ -88,7 +116,10 @@ const ApiUrlInput = () => {
 }`}
               </pre>
               <p className="mb-1">Response:</p>
-              <pre className="bg-blue-100 p-1 rounded text-xs overflow-auto">
+              <pre className={cn(
+                "p-1 rounded text-xs overflow-auto",
+                theme === 'dark' ? "bg-gray-600" : "bg-blue-100"
+              )}>
                 {`{
   "answer": "API response text",
   "should_play_audio": true
@@ -105,7 +136,12 @@ const ApiUrlInput = () => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={translate('api.placeholder')}
-            className={error ? "border-red-500" : ""}
+            className={cn(
+              error ? "border-red-500" : "",
+              theme === 'dark' 
+                ? "bg-gray-700 text-white border-gray-600 focus:border-blue-500" 
+                : ""
+            )}
           />
           {error && (
             <div className="text-red-500 text-xs flex items-center">
@@ -113,11 +149,21 @@ const ApiUrlInput = () => {
               {error}
             </div>
           )}
-          <div className="text-xs text-loan-gray-500">
-            API requests will be sent to <span className="font-mono bg-gray-100 px-1 rounded">{inputValue || 'your-url'}/ask</span>
+          <div className={cn(
+            "text-xs",
+            theme === 'dark' ? "text-gray-300" : "text-loan-gray-500"
+          )}>
+            API requests will be sent to <span className={cn(
+              "font-mono px-1 rounded",
+              theme === 'dark' ? "bg-gray-700" : "bg-gray-100"
+            )}>{inputValue || 'your-url'}/ask</span>
           </div>
           <div className="flex space-x-2">
-            <Button size="sm" onClick={handleSave}>
+            <Button 
+              size="sm" 
+              onClick={handleSave}
+              className={theme === 'dark' ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
               Save
             </Button>
             <Button 
@@ -128,6 +174,7 @@ const ApiUrlInput = () => {
                 setInputValue(customApiUrl);
                 setError('');
               }}
+              className={theme === 'dark' ? "border-gray-600 text-gray-200" : ""}
             >
               Cancel
             </Button>
@@ -135,13 +182,17 @@ const ApiUrlInput = () => {
         </div>
       ) : (
         <div className="flex items-center justify-between">
-          <div className="font-mono text-sm bg-gray-100 px-2 py-1 rounded truncate max-w-[80%]">
+          <div className={cn(
+            "font-mono text-sm px-2 py-1 rounded truncate max-w-[80%]",
+            theme === 'dark' ? "bg-gray-700 text-blue-300" : "bg-gray-100"
+          )}>
             {customApiUrl}
           </div>
           <Button 
             size="sm" 
             variant="outline" 
             onClick={() => setIsEditing(true)}
+            className={theme === 'dark' ? "border-gray-600 text-gray-200 hover:bg-gray-700" : ""}
           >
             {translate('api.edit')}
           </Button>

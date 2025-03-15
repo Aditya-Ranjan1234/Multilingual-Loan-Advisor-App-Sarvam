@@ -7,9 +7,12 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ApiUrlProvider } from "./contexts/ApiUrlContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
+import MainLayout from "./components/MainLayout";
+import Home from "./pages/Home";
+import Loans from "./pages/Loans";
+import Calculator from "./pages/Calculator";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,10 +28,12 @@ const App = () => (
               <Sonner />
               <BrowserRouter>
                 <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="*" element={<NotFound />} />
+                  <Route path="/" element={<MainLayout><Home /></MainLayout>} />
+                  <Route path="/loans" element={<MainLayout><Loans /></MainLayout>} />
+                  <Route path="/calculator" element={<MainLayout><Calculator /></MainLayout>} />
+                  <Route path="/about" element={<MainLayout><About /></MainLayout>} />
+                  <Route path="/contact" element={<MainLayout><Contact /></MainLayout>} />
+                  <Route path="*" element={<MainLayout><NotFound /></MainLayout>} />
                 </Routes>
               </BrowserRouter>
             </TooltipProvider>

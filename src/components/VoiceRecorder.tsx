@@ -6,16 +6,18 @@ import { useApiUrl } from '@/contexts/ApiUrlContext';
 import { submitAudioQuery } from '@/services/api';
 import { speechToText } from '@/services/sarvamAI';
 import { toast } from '@/components/ui/use-toast';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 
 type VoiceRecorderProps = {
   onResponseReceived: (response: string, shouldPlayAudio: boolean) => void;
   setLoading: (loading: boolean) => void;
-  toggleCalculator?: () => void;
 };
 
-const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: VoiceRecorderProps) => {
+const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) => {
   const { currentLanguage, translate, translateDynamic } = useLanguage();
   const { customApiUrl } = useApiUrl();
+  const { theme } = useTheme();
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
@@ -87,6 +89,13 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
                 languageCode: currentLanguage.code
               });
               console.log('Transcribed text:', transcribedText);
+              
+              // Dispatch an event to add the user message to the conversation
+              if (transcribedText) {
+                document.dispatchEvent(new CustomEvent('userMessage', { 
+                  detail: { text: transcribedText } 
+                }));
+              }
             } catch (transcriptionError) {
               console.error('Error transcribing audio:', transcriptionError);
               // If transcription fails, we'll still have a default response from speechToText
@@ -160,23 +169,38 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
   };
 
   return (
-    <div className="flex flex-col items-center">
+    <div className={cn(
+      "flex flex-col items-center p-4",
+      theme === 'dark' ? "text-gray-200" : "text-loan-gray-800"
+    )}>
       {permissionDenied ? (
-        <div className="text-red-500 mb-4 flex items-center">
+        <div className={cn(
+          "mb-4 flex items-center",
+          theme === 'dark' ? "text-red-400" : "text-red-500"
+        )}>
           <MicOff size={18} className="mr-2" />
           {translate('voice.denied') || 'Microphone access denied'}
         </div>
       ) : processingAudio ? (
-        <div className="text-loan-blue mb-4 flex items-center">
+        <div className={cn(
+          "mb-4 flex items-center",
+          theme === 'dark' ? "text-blue-400" : "text-loan-blue"
+        )}>
           <Loader2 size={18} className="mr-2 animate-spin" />
           {translate('voice.processing') || 'Processing audio...'}
         </div>
       ) : isRecording ? (
-        <div className="text-loan-blue mb-4 animate-pulse">
+        <div className={cn(
+          "mb-4 animate-pulse",
+          theme === 'dark' ? "text-blue-400" : "text-loan-blue"
+        )}>
           {translate('voice.recording').replace('{time}', formatTime(recordingTime)) || `Recording... ${formatTime(recordingTime)}`}
         </div>
       ) : (
-        <div className="text-loan-gray-500 mb-4">
+        <div className={cn(
+          "mb-4",
+          theme === 'dark' ? "text-gray-400" : "text-loan-gray-500"
+        )}>
           {translate('voice.prompt') || 'Click to record'}
         </div>
       )}
@@ -184,11 +208,12 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
       <Button
         onClick={toggleRecording}
         disabled={permissionDenied || processingAudio}
-        className={`rounded-full w-16 h-16 p-0 ${
+        className={cn(
+          "rounded-full w-16 h-16 p-0",
           isRecording 
-            ? 'bg-red-500 hover:bg-red-600' 
-            : 'bg-loan-blue hover:bg-loan-blue/90'
-        }`}
+            ? theme === 'dark' ? "bg-red-600 hover:bg-red-700" : "bg-red-500 hover:bg-red-600"
+            : theme === 'dark' ? "bg-blue-600 hover:bg-blue-700" : "bg-loan-blue hover:bg-loan-blue/90"
+        )}
         aria-label={isRecording ? (translate('voice.stop') || 'Stop recording') : (translate('voice.start') || 'Start recording')}
       >
         <Mic size={24} className="text-white" />

@@ -22,15 +22,42 @@ export type ConversationContext = {
 
 // CORS proxy options to use if direct requests fail
 const CORS_PROXIES = [
-  'https://corsproxy.io/?',
   'https://api.allorigins.win/raw?url=',
-  'https://cors.bridged.cc/'
+  'https://thingproxy.freeboard.io/fetch/',
+  'https://cors.bridged.cc/',
+  'https://corsproxy.io/?'
 ];
 
 // Function to try a request with different CORS proxies
 const fetchWithCorsProxy = async (url: string, options: RequestInit): Promise<Response> => {
-  // Always use a CORS proxy for external API requests to avoid CORS issues
-  console.log('Using CORS proxy for request to:', url);
+  // First try direct request with no-cors mode
+  try {
+    console.log('Trying direct request to:', url);
+    
+    // Clone the options to avoid modifying the original
+    const directOptions = { ...options };
+    
+    // Add CORS headers to the request
+    directOptions.headers = {
+      ...directOptions.headers as Record<string, string>,
+      'Origin': window.location.origin,
+      'Access-Control-Request-Method': directOptions.method || 'POST',
+      'Access-Control-Request-Headers': 'Content-Type, Accept'
+    };
+    
+    // Try the direct request
+    const response = await fetch(url, directOptions);
+    
+    if (response.ok) {
+      console.log('Direct request succeeded');
+      return response;
+    }
+  } catch (directError) {
+    console.log('Direct request failed:', directError);
+  }
+  
+  // If direct request fails, try with CORS proxies
+  console.log('Using CORS proxies for request to:', url);
   
   // Try each proxy in sequence until one works
   let lastError: Error | null = null;
@@ -85,7 +112,8 @@ const fetchWithCorsProxy = async (url: string, options: RequestInit): Promise<Re
   const mockResponseBody = JSON.stringify({
     error: 'CORS_ERROR',
     message: 'Could not access the API due to CORS restrictions. Using fallback response.',
-    fallback: true
+    fallback: true,
+    answer: getMockResponse()
   });
   
   // Return a Response object that our code can handle

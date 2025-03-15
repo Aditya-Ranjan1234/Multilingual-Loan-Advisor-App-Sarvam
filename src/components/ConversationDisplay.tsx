@@ -1,274 +1,190 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Volume2, Volume1, VolumeX, User, Bot, Trash2 } from 'lucide-react';
-import { textToSpeech } from '@/services/sarvamAI';
-import { Button } from '@/components/ui/button';
-import { ConversationMessage, getConversationContext, clearConversation } from '@/services/api';
-import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+type Message = {
+  role: 'user' | 'bot';
+  content: string;
+};
 
 type ConversationDisplayProps = {
   response: string;
   loading: boolean;
-  shouldPlayAudio?: boolean;
+  shouldPlayAudio: boolean;
 };
 
-const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: ConversationDisplayProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+const ConversationDisplay = ({ response, loading, shouldPlayAudio }: ConversationDisplayProps) => {
   const { currentLanguage, translate } = useLanguage();
   const { theme } = useTheme();
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [conversation, setConversation] = useState<Message[]>([]);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [conversation, setConversation] = useState<ConversationMessage[]>([]);
-  
-  // Clear conversation history when component mounts (site loads)
+
+  // Add new messages to the conversation
   useEffect(() => {
-    clearConversation();
-    setConversation([]);
-  }, []);
-  
-  // Load conversation history from localStorage
+    if (response && !loading) {
+      setConversation(prev => [...prev, { role: 'bot', content: response }]);
+    }
+  }, [response, loading]);
+
+  // Scroll to the bottom when conversation updates
   useEffect(() => {
-    const context = getConversationContext();
-    setConversation(context.messages);
-  }, [response]); // Reload when response changes
-  
-  // Scroll to bottom when conversation updates
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    if (conversationEndRef.current) {
+      conversationEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [conversation, loading]);
 
+  // Handle text-to-speech
   useEffect(() => {
-    // Clean up previous audio URL
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-      setAudioUrl(null);
+    if (response && shouldPlayAudio && !loading && !audioPlaying) {
+      const speak = async () => {
+        try {
+          setAudioPlaying(true);
+          
+          // Create a URL for the audio
+          const url = `/api/tts?text=${encodeURIComponent(response)}&lang=${currentLanguage.code}`;
+          
+          // Create an audio element if it doesn't exist
+          if (!audioRef.current) {
+            audioRef.current = new Audio();
+            audioRef.current.onended = () => setAudioPlaying(false);
+          }
+          
+          // Set the source and play
+          audioRef.current.src = url;
+          await audioRef.current.play();
+        } catch (error) {
+          console.error('Error playing audio:', error);
+          setAudioPlaying(false);
+        }
+      };
+      
+      speak();
     }
-    
-    // Generate new audio if we have a response and shouldPlayAudio is true
-    if (response && !loading && shouldPlayAudio) {
-      generateSpeech(response);
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
+  }, [response, shouldPlayAudio, loading, audioPlaying, currentLanguage.code]);
+
+  // Listen for userMessage events
+  useEffect(() => {
+    const handleUserMessage = (event: CustomEvent) => {
+      if (event.detail && event.detail.text) {
+        setConversation(prev => [...prev, { role: 'user', content: event.detail.text }]);
       }
     };
-  }, [response, loading, shouldPlayAudio]);
 
-  const generateSpeech = async (text: string) => {
-    if (!text) return;
-    
-    try {
-      const audioBlob = await textToSpeech({
-        input: text,
-        languageCode: currentLanguage.code
-      });
-      
-      const url = URL.createObjectURL(audioBlob);
-      setAudioUrl(url);
-      
-      // Auto-play audio
-      if (shouldPlayAudio) {
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onplay = () => setIsPlaying(true);
-        audio.onended = () => setIsPlaying(false);
-        audio.onpause = () => setIsPlaying(false);
-        audio.play().catch(err => console.error('Audio playback failed:', err));
-      }
-    } catch (error) {
-      console.error('Error generating speech:', error);
-    }
-  };
+    document.addEventListener('userMessage', handleUserMessage as EventListener);
+    return () => document.removeEventListener('userMessage', handleUserMessage as EventListener);
+  }, []);
 
-  const toggleAudio = (text: string) => {
-    if (audioRef.current && audioUrl) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play().catch(err => console.error('Audio playback failed:', err));
-      }
-    } else {
-      generateSpeech(text);
-    }
-  };
-
-  const handleClearConversation = () => {
-    clearConversation();
-    setConversation([]);
-  };
-
-  // Function to format message content with basic formatting
-  const formatMessageContent = (content: string, role: 'user' | 'assistant') => {
-    // For user messages, just return the plain text
-    if (role === 'user') {
-      return <div className="whitespace-pre-wrap">{content}</div>;
-    }
-    
-    // For assistant messages, add some basic formatting
+  // Format text with basic styling
+  const formatText = (text: string) => {
     // Replace ** text ** with bold text
-    const formattedContent = content
-      .split('\n')
-      .map((line, i) => {
-        // Apply bold formatting
-        const boldFormatted = line.replace(
-          /\*\*(.*?)\*\*/g, 
-          '<strong>$1</strong>'
-        );
-        
-        // Apply code formatting
-        const codeFormatted = boldFormatted.replace(
-          /`(.*?)`/g, 
-          `<code class="${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'} px-1 py-0.5 rounded text-xs font-mono">$1</code>`
-        );
-        
-        return codeFormatted;
-      })
-      .join('<br />');
+    const withBold = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     
-    return <div 
-      className="whitespace-pre-wrap" 
-      dangerouslySetInnerHTML={{ __html: formattedContent }} 
-    />;
+    // Replace * text * with italic text
+    const withItalic = withBold.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Replace ` text ` with code text
+    const withCode = withItalic.replace(/`(.*?)`/g, 
+      `<code class="${theme === 'dark' ? 'bg-gray-600 text-gray-100' : 'bg-gray-100 text-gray-800'} px-1 py-0.5 rounded text-xs font-mono">$1</code>`
+    );
+    
+    // Replace URLs with links
+    const withLinks = withCode.replace(
+      /(https?:\/\/[^\s]+)/g, 
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">$1</a>'
+    );
+    
+    // Replace newlines with <br>
+    return withLinks.split('\n').join('<br />');
   };
 
   return (
-    <div className={cn(
-      "w-full rounded-xl overflow-hidden backdrop-blur-sm border shadow-sm transition-all",
-      theme === 'dark' 
-        ? "bg-gray-800/90 border-gray-700 text-white" 
-        : "bg-white/90 border-gray-200"
-    )}>
+    <div className="h-full flex flex-col">
       <div className={cn(
-        "flex justify-between items-center p-4 border-b",
-        theme === 'dark' ? "border-gray-700" : "border-gray-100"
+        "p-3 border-b flex items-center justify-between",
+        theme === 'dark' ? "bg-gray-700 border-gray-600" : "bg-loan-gray-50 border-gray-200"
       )}>
-        <h3 className={cn(
-          "font-medium",
-          theme === 'dark' ? "text-white" : "text-loan-gray-700"
-        )}>{translate('conversation.title')}</h3>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={handleClearConversation}
-          className={cn(
-            "flex items-center gap-1",
-            theme === 'dark' ? "text-gray-300 hover:text-white" : "text-loan-gray-500 hover:text-loan-gray-700"
-          )}
-        >
-          <Trash2 size={14} />
-          <span>{translate('conversation.clear')}</span>
-        </Button>
+        <h2 className={cn(
+          "text-sm font-medium",
+          theme === 'dark' ? "text-white" : "text-loan-gray-800"
+        )}>
+          {translate('conversation.title') || 'Conversation'}
+        </h2>
+        <div className={cn(
+          "text-xs px-2 py-0.5 rounded-full",
+          theme === 'dark' ? "bg-blue-900 text-blue-300" : "bg-loan-blue/20 text-loan-blue"
+        )}>
+          {currentLanguage.name}
+        </div>
       </div>
       
-      <div 
-        className="p-4 min-h-[300px] max-h-[500px] overflow-y-auto" 
-        ref={containerRef}
-      >
+      <div className={cn(
+        "flex-1 overflow-y-auto p-3 space-y-3",
+        theme === 'dark' ? "bg-gray-800" : "bg-white"
+      )}>
         {conversation.length === 0 ? (
           <div className={cn(
-            "h-full flex items-center justify-center text-center p-6",
-            theme === 'dark' ? "text-gray-400" : "text-loan-gray-400"
+            "h-full flex flex-col items-center justify-center text-center p-4",
+            theme === 'dark' ? "text-gray-400" : "text-loan-gray-500"
           )}>
-            {translate('conversation.empty') || 'Start a conversation by typing a message below'}
+            <p className="mb-2 text-base font-medium">
+              {translate('conversation.empty.title') || 'Welcome to Loan Advisor'}
+            </p>
+            <p className="text-sm max-w-md">
+              {translate('conversation.empty.subtitle') || 
+                'Ask me anything about personal loans, eligibility, interest rates, or application processes in your preferred language.'}
+            </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {conversation.map((message, index) => (
-              <div 
-                key={index} 
-                className={cn(
-                  "flex gap-3 p-3 rounded-lg",
-                  message.role === 'user' 
-                    ? "ml-auto max-w-[80%] bg-loan-blue/10 text-loan-gray-800" 
-                    : "max-w-[90%]",
-                  message.role === 'assistant' && theme === 'dark'
-                    ? "bg-gray-700 border-gray-600 text-white shadow-sm"
-                    : message.role === 'assistant'
-                    ? "bg-white border border-gray-200 shadow-sm"
-                    : "",
-                  message.role === 'user' && theme === 'dark'
-                    ? "bg-loan-blue/30 text-white"
-                    : ""
-                )}
-              >
-                <div className={cn(
-                  "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-                  message.role === 'user' ? "bg-loan-blue/20" : "bg-loan-indigo/20"
-                )}>
-                  {message.role === 'user' 
-                    ? <User size={16} className="text-loan-blue" /> 
-                    : <Bot size={16} className="text-loan-indigo" />
-                  }
-                </div>
-                <div className="flex-1">
-                  <div className={cn(
-                    "text-sm",
-                    theme === 'dark' && message.role === 'assistant' ? "text-white" : "",
-                    theme === 'dark' && message.role === 'user' ? "text-white" : ""
-                  )}>
-                    {formatMessageContent(message.content, message.role)}
-                  </div>
-                  {message.role === 'assistant' && (
-                    <div className="mt-2 flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleAudio(message.content)}
-                        className="h-6 w-6 p-0 rounded-full"
-                      >
-                        {isPlaying ? (
-                          <VolumeX size={14} className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-500"} />
-                        ) : (
-                          <Volume1 size={14} className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-500"} />
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            {loading && (
+          conversation.map((message, index) => (
+            <div 
+              key={index} 
+              className={cn(
+                "flex",
+                message.role === 'user' ? "justify-end" : "justify-start"
+              )}
+            >
               <div className={cn(
-                "flex gap-3 p-3 rounded-lg max-w-[90%]",
-                theme === 'dark'
-                  ? "bg-gray-700 border-gray-600 shadow-sm"
-                  : "bg-white border border-gray-200 shadow-sm"
+                "max-w-[85%] rounded-lg p-2 text-sm",
+                message.role === 'user' 
+                  ? theme === 'dark' 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-loan-blue text-white"
+                  : theme === 'dark'
+                    ? "bg-gray-700 text-gray-100"
+                    : "bg-loan-gray-100 text-loan-gray-800"
               )}>
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-loan-indigo/20 flex items-center justify-center">
-                  <Bot size={16} className="text-loan-indigo" />
-                </div>
-                <div className="flex-1">
-                  <div className={cn(
-                    "text-sm",
-                    theme === 'dark' ? "text-gray-300" : "text-loan-gray-500"
-                  )}>{translate('conversation.processing') || 'Processing your request...'}</div>
-                  <div className="mt-1 flex space-x-1">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full animate-bounce",
-                      theme === 'dark' ? "bg-gray-500" : "bg-loan-gray-300"
-                    )} style={{ animationDelay: '0ms' }}></div>
-                    <div className={cn(
-                      "w-2 h-2 rounded-full animate-bounce",
-                      theme === 'dark' ? "bg-gray-500" : "bg-loan-gray-300"
-                    )} style={{ animationDelay: '150ms' }}></div>
-                    <div className={cn(
-                      "w-2 h-2 rounded-full animate-bounce",
-                      theme === 'dark' ? "bg-gray-500" : "bg-loan-gray-300"
-                    )} style={{ animationDelay: '300ms' }}></div>
-                  </div>
-                </div>
+                {message.role === 'user' ? (
+                  <p>{message.content}</p>
+                ) : (
+                  <div 
+                    className="whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
+                  />
+                )}
               </div>
-            )}
+            </div>
+          ))
+        )}
+        
+        {loading && (
+          <div className="flex justify-start">
+            <div className={cn(
+              "max-w-[85%] rounded-lg p-3",
+              theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-100"
+            )}>
+              <Loader2 className={cn(
+                "h-4 w-4 animate-spin",
+                theme === 'dark' ? "text-blue-400" : "text-loan-blue"
+              )} />
+            </div>
           </div>
         )}
+        
+        <div ref={conversationEndRef} />
       </div>
     </div>
   );
