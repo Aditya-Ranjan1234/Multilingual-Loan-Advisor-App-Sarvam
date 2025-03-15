@@ -74,7 +74,7 @@ const Index = () => {
           
           {showCalculator ? (
             <div className="my-8 animate-fade-in">
-              <LoanCalculator />
+              <LoanCalculator onBack={toggleCalculator} />
             </div>
           ) : (
             <>
