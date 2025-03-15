@@ -115,9 +115,12 @@ export const submitTextQuery = async (data: LoanQueryData, customApiUrl: string)
     
     // Send translated text to custom API
     try {
-      // Use the local proxy endpoint instead of the direct API URL
-      // This will route through Vite's proxy to avoid CORS issues
-      const apiEndpoint = '/ask';
+      // Construct the API endpoint using the customApiUrl
+      // Ensure the URL ends with /ask
+      const apiEndpoint = customApiUrl.endsWith('/ask') 
+        ? customApiUrl 
+        : `${customApiUrl.endsWith('/') ? customApiUrl.slice(0, -1) : customApiUrl}/ask`;
+      
       console.log('Sending request to:', apiEndpoint);
       
       // Prepare the request payload with conversation history
@@ -135,12 +138,18 @@ export const submitTextQuery = async (data: LoanQueryData, customApiUrl: string)
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*',
+          'Origin': window.location.origin,
         },
+        mode: 'cors',
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
       
       if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error(`API error (${response.status}): ${errorText}`);
+        throw new Error(`API responded with status: ${response.status} - ${errorText}`);
       }
       
       // The API returns the response directly as text
@@ -225,16 +234,19 @@ export const submitAudioQuery = async (data: LoanQueryData, customApiUrl: string
     
     // Assume we now have English text from the audio
     // In a real implementation, this would come from the speech-to-text service
-    const englishText = "This is simulated text from audio transcription";
+    const englishText = data.text || "This is simulated text from audio transcription";
     
     // Add user message to conversation
     addMessageToConversation('user', englishText, conversationContext);
     
     // Send the English text to custom API
     try {
-      // Use the local proxy endpoint instead of the direct API URL
-      // This will route through Vite's proxy to avoid CORS issues
-      const apiEndpoint = '/ask';
+      // Construct the API endpoint using the customApiUrl
+      // Ensure the URL ends with /ask
+      const apiEndpoint = customApiUrl.endsWith('/ask') 
+        ? customApiUrl 
+        : `${customApiUrl.endsWith('/') ? customApiUrl.slice(0, -1) : customApiUrl}/ask`;
+      
       console.log('Sending request to:', apiEndpoint);
       
       // Prepare the request payload with conversation history
@@ -252,12 +264,18 @@ export const submitAudioQuery = async (data: LoanQueryData, customApiUrl: string
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*',
+          'Origin': window.location.origin,
         },
+        mode: 'cors',
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
       
       if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error(`API error (${response.status}): ${errorText}`);
+        throw new Error(`API responded with status: ${response.status} - ${errorText}`);
       }
       
       // The API returns the response directly as text

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 type ApiUrlContextType = {
@@ -9,7 +8,7 @@ type ApiUrlContextType = {
 const ApiUrlContext = createContext<ApiUrlContextType | undefined>(undefined);
 
 export const ApiUrlProvider = ({ children }: { children: ReactNode }) => {
-  const [customApiUrl, setCustomApiUrl] = useState<string>('https://api.example.com');
+  const [customApiUrl, setCustomApiUrl] = useState<string>('https://api.sarvam.ai');
 
   return (
     <ApiUrlContext.Provider value={{ customApiUrl, setCustomApiUrl }}>
