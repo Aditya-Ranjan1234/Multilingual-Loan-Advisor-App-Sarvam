@@ -66,7 +66,7 @@ const ApiUrlInput = () => {
       {showCorsInfo && (
         <Alert className="bg-blue-50 text-blue-800 border-blue-200 text-xs">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>About CORS</AlertTitle>
+          <AlertTitle>About CORS and API Format</AlertTitle>
           <AlertDescription className="mt-2">
             <p className="mb-1">Due to browser security restrictions (CORS), API requests to external domains may be blocked.</p>
             <p className="mb-1">This app uses CORS proxies to handle these restrictions, but for best results:</p>
@@ -76,6 +76,25 @@ const ApiUrlInput = () => {
               <li>If using a custom server, add appropriate CORS headers</li>
             </ul>
             <p className="mt-1">If CORS issues persist, the app will use fallback responses.</p>
+            
+            <div className="mt-3 border-t border-blue-200 pt-2">
+              <p className="font-medium mb-1">Expected API Format:</p>
+              <p className="mb-1">Request:</p>
+              <pre className="bg-blue-100 p-1 rounded text-xs overflow-auto mb-2">
+                {`POST ${customApiUrl}/ask
+{
+  "question": "user input text",
+  "conversation_context": { ... }
+}`}
+              </pre>
+              <p className="mb-1">Response:</p>
+              <pre className="bg-blue-100 p-1 rounded text-xs overflow-auto">
+                {`{
+  "answer": "API response text",
+  "should_play_audio": true
+}`}
+              </pre>
+            </div>
           </AlertDescription>
         </Alert>
       )}

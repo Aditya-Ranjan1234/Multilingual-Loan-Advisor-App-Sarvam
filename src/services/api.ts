@@ -196,7 +196,7 @@ export const submitTextQuery = async (
     
     // Prepare request payload
     const payload = {
-      query: translatedInput,
+      question: translatedInput,
       conversation_context: getConversationContext()
     };
     
@@ -238,10 +238,13 @@ export const submitTextQuery = async (
     // Process normal response
     console.log('API response:', data);
     
+    // Get the response text from the answer field
+    const responseText = data.answer || data.response || "I'm sorry, I couldn't process your request.";
+    
     // Translate response back to user's language if needed
     const translatedResponse = language.code === 'en' 
-      ? data.response 
-      : await translateText(data.response, 'en', language.code);
+      ? responseText 
+      : await translateText(responseText, 'en', language.code);
     
     // Add assistant message to conversation
     addMessageToConversation({
@@ -326,6 +329,9 @@ export const submitAudioQuery = async (
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio.webm');
     
+    // Add question in the required format
+    formData.append('question', translatedInput);
+    
     // Add conversation context
     formData.append('conversation_context', JSON.stringify(getConversationContext()));
     
@@ -363,10 +369,13 @@ export const submitAudioQuery = async (
     // Process normal response
     console.log('API response:', data);
     
+    // Get the response text from the answer field
+    const responseText = data.answer || data.response || "I'm sorry, I couldn't process your request.";
+    
     // Translate response back to user's language if needed
     const translatedResponse = language.code === 'en' 
-      ? data.response 
-      : await translateText(data.response, 'en', language.code);
+      ? responseText 
+      : await translateText(responseText, 'en', language.code);
     
     // Add assistant message to conversation
     addMessageToConversation({
