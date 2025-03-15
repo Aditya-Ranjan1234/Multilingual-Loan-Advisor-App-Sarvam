@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Volume2, Volume1, VolumeX, User, Bot } from 'lucide-react';
+import { Volume2, Volume1, VolumeX, User, Bot, Trash2 } from 'lucide-react';
 import { textToSpeech } from '@/services/sarvamAI';
 import { Button } from '@/components/ui/button';
 import { ConversationMessage, getConversationContext, clearConversation } from '@/services/api';
@@ -28,11 +28,12 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
     setConversation(context.messages);
   }, [response]); // Reload when response changes
   
+  // Scroll to bottom when conversation updates
   useEffect(() => {
     if (containerRef.current) {
-      containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [conversation]);
+  }, [conversation, loading]);
 
   useEffect(() => {
     // Clean up previous audio URL
@@ -97,6 +98,40 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
     setConversation([]);
   };
 
+  // Function to format message content with basic formatting
+  const formatMessageContent = (content: string, role: 'user' | 'assistant') => {
+    // For user messages, just return the plain text
+    if (role === 'user') {
+      return <div className="whitespace-pre-wrap">{content}</div>;
+    }
+    
+    // For assistant messages, add some basic formatting
+    // Replace ** text ** with bold text
+    const formattedContent = content
+      .split('\n')
+      .map((line, i) => {
+        // Apply bold formatting
+        const boldFormatted = line.replace(
+          /\*\*(.*?)\*\*/g, 
+          '<strong>$1</strong>'
+        );
+        
+        // Apply code formatting
+        const codeFormatted = boldFormatted.replace(
+          /`(.*?)`/g, 
+          `<code class="${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'} px-1 py-0.5 rounded text-xs font-mono">$1</code>`
+        );
+        
+        return codeFormatted;
+      })
+      .join('<br />');
+    
+    return <div 
+      className="whitespace-pre-wrap" 
+      dangerouslySetInnerHTML={{ __html: formattedContent }} 
+    />;
+  };
+
   return (
     <div className={cn(
       "w-full rounded-xl overflow-hidden backdrop-blur-sm border shadow-sm transition-all",
@@ -117,14 +152,19 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
           size="sm" 
           onClick={handleClearConversation}
           className={cn(
+            "flex items-center gap-1",
             theme === 'dark' ? "text-gray-300 hover:text-white" : "text-loan-gray-500 hover:text-loan-gray-700"
           )}
         >
-          {translate('conversation.clear')}
+          <Trash2 size={14} />
+          <span>{translate('conversation.clear')}</span>
         </Button>
       </div>
       
-      <div className="p-4 min-h-[300px] max-h-[500px] overflow-y-auto">
+      <div 
+        className="p-4 min-h-[300px] max-h-[500px] overflow-y-auto" 
+        ref={containerRef}
+      >
         {conversation.length === 0 ? (
           <div className={cn(
             "h-full flex items-center justify-center text-center p-6",
@@ -133,17 +173,20 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
             {translate('conversation.empty') || 'Start a conversation by typing a message below'}
           </div>
         ) : (
-          <div className="space-y-4" ref={containerRef}>
+          <div className="space-y-4">
             {conversation.map((message, index) => (
               <div 
                 key={index} 
                 className={cn(
-                  "flex gap-3 p-3 rounded-lg max-w-[85%]",
+                  "flex gap-3 p-3 rounded-lg",
                   message.role === 'user' 
-                    ? "ml-auto bg-loan-blue/10 text-loan-gray-800" 
-                    : theme === 'dark'
-                      ? "bg-gray-700 border-gray-600 text-white shadow-sm"
-                      : "bg-white border border-gray-200 shadow-sm"
+                    ? "ml-auto max-w-[80%] bg-loan-blue/10 text-loan-gray-800" 
+                    : "max-w-[90%]",
+                  message.role === 'assistant' && theme === 'dark'
+                    ? "bg-gray-700 border-gray-600 text-white shadow-sm"
+                    : message.role === 'assistant'
+                    ? "bg-white border border-gray-200 shadow-sm"
+                    : ""
                 )}
               >
                 <div className={cn(
@@ -157,9 +200,11 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
                 </div>
                 <div className="flex-1">
                   <div className={cn(
-                    "whitespace-pre-wrap text-sm",
+                    "text-sm",
                     theme === 'dark' && message.role === 'assistant' ? "text-white" : ""
-                  )}>{message.content}</div>
+                  )}>
+                    {formatMessageContent(message.content, message.role)}
+                  </div>
                   {message.role === 'assistant' && (
                     <div className="mt-2 flex justify-end">
                       <Button
@@ -182,7 +227,7 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio = false }: Con
             
             {loading && (
               <div className={cn(
-                "flex gap-3 p-3 rounded-lg max-w-[85%]",
+                "flex gap-3 p-3 rounded-lg max-w-[90%]",
                 theme === 'dark'
                   ? "bg-gray-700 border-gray-600 shadow-sm"
                   : "bg-white border border-gray-200 shadow-sm"

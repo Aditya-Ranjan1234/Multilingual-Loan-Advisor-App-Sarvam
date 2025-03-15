@@ -94,21 +94,21 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
             
             // Then, submit the transcribed text to get a response
             setLoading(true);
-            const result = await submitAudioQuery({
-              audio: audioBlob,
-              language: currentLanguage.code,
-              text: transcribedText // Pass the transcribed text
-            }, customApiUrl);
+            const result = await submitAudioQuery(
+              audioBlob,
+              customApiUrl,
+              currentLanguage,
+              transcribedText // Pass the transcribed text
+            );
             
             // Show the response with audio playback enabled
-            onResponseReceived(result.text, true);
+            onResponseReceived(result.text, result.shouldPlayAudio);
           } catch (error) {
             console.error('Error processing audio:', error);
             
             // Instead of showing an error toast, provide a helpful response
             const errorMessage = await translateDynamic(
-              "I couldn't process your audio properly, but I'm here to help with your loan-related questions. Please try again or type your question.",
-              currentLanguage.code
+              "I couldn't process your audio properly, but I'm here to help with your loan-related questions. Please try again or type your question."
             );
             
             onResponseReceived(errorMessage, false);

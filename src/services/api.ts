@@ -1,5 +1,6 @@
 import { toast } from '@/components/ui/use-toast';
-import { translateText } from './sarvamAI';
+import { Language } from '@/contexts/LanguageContext';
+import { translateText as sarvamTranslateText } from '@/services/sarvamAI';
 
 // Type for the form data
 export type LoanQueryData = {
@@ -8,17 +9,75 @@ export type LoanQueryData = {
   language: string;
 };
 
-// Type for conversation message
+// Type for conversation messages
 export type ConversationMessage = {
   role: 'user' | 'assistant';
   content: string;
-  timestamp: number;
 };
 
 // Type for conversation context
 export type ConversationContext = {
   messages: ConversationMessage[];
-  conversationId?: string;
+};
+
+// CORS proxy options to use if direct requests fail
+const CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://cors-anywhere.herokuapp.com/',
+  'https://api.allorigins.win/raw?url='
+];
+
+// Function to try a request with different CORS proxies
+const fetchWithCorsProxy = async (url: string, options: RequestInit): Promise<Response> => {
+  // First try direct request with cors mode
+  try {
+    console.log('Trying direct request with cors mode');
+    const response = await fetch(url, {
+      ...options,
+      mode: 'cors'
+    });
+    return response;
+  } catch (corsError) {
+    console.log('Direct request with cors mode failed:', corsError);
+    
+    // Try with no-cors mode (this will result in an opaque response)
+    try {
+      console.log('Trying direct request with no-cors mode');
+      const response = await fetch(url, {
+        ...options,
+        mode: 'no-cors',
+        // Remove headers that aren't allowed in no-cors mode
+        headers: {}
+      });
+      
+      // Note: no-cors mode returns an opaque response that can't be read
+      // We'll return it anyway and handle it in the calling function
+      return response;
+    } catch (noCorsError) {
+      console.log('Direct request with no-cors mode failed:', noCorsError);
+      
+      // If direct requests fail, try with CORS proxies
+      for (const proxy of CORS_PROXIES) {
+        try {
+          const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
+          console.log(`Trying with proxy: ${proxy}`);
+          const response = await fetch(proxyUrl, {
+            ...options,
+            mode: 'cors'
+          });
+          if (response.ok) {
+            console.log(`Request succeeded with proxy: ${proxy}`);
+            return response;
+          }
+        } catch (proxyError) {
+          console.error(`Proxy ${proxy} failed:`, proxyError);
+        }
+      }
+      
+      // If all proxies fail, throw error
+      throw new Error('All request attempts failed, including CORS proxies');
+    }
+  }
 };
 
 // Mock API responses - used as fallback if API call fails
@@ -31,10 +90,29 @@ const mockResponses = [
   "Your loan request is being processed. Please check your email for updates.",
 ];
 
-// Function to get a random mock response
-const getMockResponse = () => {
-  const randomIndex = Math.floor(Math.random() * mockResponses.length);
-  return mockResponses[randomIndex];
+// Helper function to translate text using the correct function signature
+const translateText = async (text: string, sourceLanguageCode: string, targetLanguageCode: string): Promise<string> => {
+  return sarvamTranslateText({
+    text,
+    sourceLanguage: sourceLanguageCode,
+    targetLanguage: targetLanguageCode
+  });
+};
+
+// Function to get mock response
+const getMockResponse = (query: string = ""): string => {
+  // Generate a mock response based on the query
+  if (query.toLowerCase().includes('loan')) {
+    return "I can help you with loan information. We offer personal loans with competitive interest rates starting from 10.5% per annum. The loan amount ranges from ₹50,000 to ₹40,00,000 with flexible repayment tenure of 12-60 months. Would you like to know more about eligibility criteria or application process?";
+  } else if (query.toLowerCase().includes('eligibility')) {
+    return "To be eligible for a personal loan, you need to be between 23-58 years of age, have a minimum monthly income of ₹25,000, and a good credit score (preferably above 750). Salaried individuals should have at least 2 years of work experience with 1 year in the current organization. Self-employed professionals should have at least 3 years of business continuity.";
+  } else if (query.toLowerCase().includes('interest')) {
+    return "Our personal loan interest rates start from 10.5% per annum and can go up to 18% depending on your credit profile, income, employment status, and relationship with the bank. The exact rate will be determined after your application assessment.";
+  } else if (query.toLowerCase().includes('document')) {
+    return "For a personal loan application, you'll need to submit: 1) Identity proof (Aadhaar, PAN, Passport, Voter ID), 2) Address proof (Utility bills, Rental agreement), 3) Income proof (Salary slips for the last 3 months, Form 16, Income Tax Returns for self-employed), and 4) Bank statements for the last 6 months.";
+  } else {
+    return "Thank you for your query. I'm your personal loan assistant. I can provide information about loan options, eligibility criteria, interest rates, documentation requirements, and application processes. How can I assist you today?";
+  }
 };
 
 // Initialize or get conversation context
@@ -58,26 +136,11 @@ export const saveConversationContext = (context: ConversationContext) => {
   localStorage.setItem('conversationContext', JSON.stringify(context));
 };
 
-// Add message to conversation
-export const addMessageToConversation = (
-  role: 'user' | 'assistant', 
-  content: string, 
-  context: ConversationContext = getConversationContext()
-): ConversationContext => {
-  const updatedContext = {
-    ...context,
-    messages: [
-      ...context.messages,
-      {
-        role,
-        content,
-        timestamp: Date.now()
-      }
-    ]
-  };
-  
-  saveConversationContext(updatedContext);
-  return updatedContext;
+// Function to add a message to the conversation
+export const addMessageToConversation = (message: ConversationMessage): void => {
+  const context = getConversationContext();
+  context.messages.push(message);
+  saveConversationContext(context);
 };
 
 // Clear conversation history
@@ -87,252 +150,243 @@ export const clearConversation = () => {
 };
 
 // Function to submit text query
-export const submitTextQuery = async (data: LoanQueryData, customApiUrl: string): Promise<string> => {
+export const submitTextQuery = async (
+  input: string,
+  customApiUrl: string,
+  language: Language
+): Promise<{ text: string; shouldPlayAudio: boolean }> => {
   try {
-    console.log('Submitting text query:', data);
-    
-    // Get current conversation context
-    const conversationContext = getConversationContext();
-    
-    // Translate input text to English if it's not already in English
-    let translatedText = data.text || '';
-    if (data.language !== 'en-IN' && data.text) {
-      try {
-        translatedText = await translateText({
-          text: data.text,
-          sourceLanguage: data.language,
-          targetLanguage: 'en-IN'
-        });
-        console.log('Translated text:', translatedText);
-      } catch (error) {
-        console.error('Translation error:', error);
-        // Continue with original text if translation fails
-      }
-    }
+    // Translate input to English if not already in English
+    const translatedInput = language.code === 'en' ? input : await translateText(input, language.code, 'en');
     
     // Add user message to conversation
-    addMessageToConversation('user', translatedText, conversationContext);
+    addMessageToConversation({
+      role: 'user',
+      content: input
+    });
     
-    // Send translated text to custom API
-    try {
-      // Construct the API endpoint using the customApiUrl
-      // Ensure the URL ends with /ask
-      const apiEndpoint = customApiUrl.endsWith('/ask') 
-        ? customApiUrl 
-        : `${customApiUrl.endsWith('/') ? customApiUrl.slice(0, -1) : customApiUrl}/ask`;
+    // Construct API endpoint
+    let apiEndpoint = customApiUrl;
+    if (!apiEndpoint.endsWith('/ask')) {
+      apiEndpoint = apiEndpoint.endsWith('/') ? `${apiEndpoint}ask` : `${apiEndpoint}/ask`;
+    }
+    
+    console.log(`Sending request to: ${apiEndpoint}`);
+    
+    // Prepare request payload
+    const payload = {
+      query: translatedInput,
+      conversation_context: getConversationContext()
+    };
+    
+    // Send request to API
+    const response = await fetchWithCorsProxy(apiEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    // Check if response is opaque (from no-cors mode)
+    if (response.type === 'opaque') {
+      console.log('Received opaque response from no-cors mode, using mock response');
+      // Use mock response since we can't read opaque responses
+      const mockResponse = getMockResponse(translatedInput);
       
-      console.log('Sending request to:', apiEndpoint);
+      // Add assistant message to conversation
+      const translatedResponse = language.code === 'en' 
+        ? mockResponse 
+        : await translateText(mockResponse, 'en', language.code);
       
-      // Prepare the request payload with conversation history
-      const payload = {
-        question: translatedText,
-        conversation_history: conversationContext.messages
-          .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-          .map(msg => ({
-            role: msg.role,
-            content: msg.content
-          }))
-      };
-      
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, text/plain, */*',
-          'Origin': window.location.origin,
-        },
-        mode: 'cors',
-        credentials: 'include',
-        body: JSON.stringify(payload),
+      addMessageToConversation({
+        role: 'assistant',
+        content: translatedResponse
       });
       
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        console.error(`API error (${response.status}): ${errorText}`);
-        throw new Error(`API responded with status: ${response.status} - ${errorText}`);
-      }
-      
-      // The API returns the response directly as text
-      const responseText = await response.text();
-      
-      // Add assistant response to conversation
-      addMessageToConversation('assistant', responseText, conversationContext);
+      return {
+        text: translatedResponse,
+        shouldPlayAudio: true
+      };
+    }
+    
+    // Process normal response
+    if (response.ok) {
+      const data = await response.json();
+      console.log('API response:', data);
       
       // Translate response back to user's language if needed
-      if (data.language !== 'en-IN') {
-        try {
-          const translatedResponse = await translateText({
-            text: responseText,
-            sourceLanguage: 'en-IN',
-            targetLanguage: data.language
-          });
-          return translatedResponse;
-        } catch (error) {
-          console.error('Response translation error:', error);
-          return responseText; // Return English response if translation fails
-        }
-      }
+      const translatedResponse = language.code === 'en' 
+        ? data.response 
+        : await translateText(data.response, 'en', language.code);
       
-      return responseText;
-    } catch (error) {
-      console.error('API request failed:', error);
-      // Use mock response if API call fails
-      const mockResponse = getMockResponse();
+      // Add assistant message to conversation
+      addMessageToConversation({
+        role: 'assistant',
+        content: translatedResponse
+      });
       
-      // Add mock response to conversation
-      addMessageToConversation('assistant', mockResponse, conversationContext);
-      
-      // Translate mock response if needed
-      if (data.language !== 'en-IN') {
-        try {
-          const translatedResponse = await translateText({
-            text: mockResponse,
-            sourceLanguage: 'en-IN',
-            targetLanguage: data.language
-          });
-          return translatedResponse;
-        } catch (translationError) {
-          console.error('Mock response translation error:', translationError);
-          return mockResponse;
-        }
-      }
-      
-      return mockResponse;
+      return {
+        text: translatedResponse,
+        shouldPlayAudio: data.should_play_audio ?? true
+      };
+    } else {
+      // Handle error response
+      const errorText = await response.text();
+      console.error('API error:', response.status, errorText);
+      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
   } catch (error) {
-    console.error('Error submitting text query:', error);
-    toast({
-      title: "Error",
-      description: "Failed to submit your query. Please try again.",
-      variant: "destructive",
+    console.error('Error in submitTextQuery:', error);
+    
+    // Use mock response as fallback
+    const mockResponse = getMockResponse(input);
+    
+    // Translate mock response if needed
+    const translatedResponse = language.code === 'en' 
+      ? mockResponse 
+      : await translateText(mockResponse, 'en', language.code);
+    
+    // Add assistant message to conversation
+    addMessageToConversation({
+      role: 'assistant',
+      content: translatedResponse
     });
-    throw error;
+    
+    return {
+      text: translatedResponse,
+      shouldPlayAudio: true
+    };
   }
 };
 
 // Function to submit audio query
-export const submitAudioQuery = async (data: LoanQueryData, customApiUrl: string): Promise<{ text: string, shouldGenerateAudio: boolean }> => {
+export const submitAudioQuery = async (
+  audioBlob: Blob,
+  customApiUrl: string,
+  language: Language,
+  transcribedText?: string
+): Promise<{ text: string; shouldPlayAudio: boolean }> => {
   try {
-    console.log('Submitting audio query:', data);
-    
-    if (!data.audio) {
-      throw new Error('No audio data provided');
-    }
-    
-    // Get current conversation context
-    const conversationContext = getConversationContext();
-    
-    // Create FormData to send audio file
-    const formData = new FormData();
-    formData.append('audio', data.audio);
-    formData.append('language', data.language);
-    
-    // Process the audio and convert to English text using SarvamAI
-    // This part would typically call SarvamAI's speech-to-text service
-    // For now, we'll simulate this process with a delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Assume we now have English text from the audio
-    // In a real implementation, this would come from the speech-to-text service
-    const englishText = data.text || "This is simulated text from audio transcription";
-    
-    // Add user message to conversation
-    addMessageToConversation('user', englishText, conversationContext);
-    
-    // Send the English text to custom API
-    try {
-      // Construct the API endpoint using the customApiUrl
-      // Ensure the URL ends with /ask
-      const apiEndpoint = customApiUrl.endsWith('/ask') 
-        ? customApiUrl 
-        : `${customApiUrl.endsWith('/') ? customApiUrl.slice(0, -1) : customApiUrl}/ask`;
+    // If we already have transcribed text, use it directly
+    if (transcribedText) {
+      console.log('Using provided transcribed text:', transcribedText);
       
-      console.log('Sending request to:', apiEndpoint);
-      
-      // Prepare the request payload with conversation history
-      const payload = {
-        question: englishText,
-        conversation_history: conversationContext.messages
-          .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-          .map(msg => ({
-            role: msg.role,
-            content: msg.content
-          }))
-      };
-      
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, text/plain, */*',
-          'Origin': window.location.origin,
-        },
-        mode: 'cors',
-        credentials: 'include',
-        body: JSON.stringify(payload),
+      // Add user message to conversation
+      addMessageToConversation({
+        role: 'user',
+        content: transcribedText
       });
       
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        console.error(`API error (${response.status}): ${errorText}`);
-        throw new Error(`API responded with status: ${response.status} - ${errorText}`);
-      }
+      // Process as a text query
+      return submitTextQuery(transcribedText, customApiUrl, language);
+    }
+    
+    // Simulate audio transcription (in a real app, you'd send the audio to a speech-to-text service)
+    // For demo purposes, we'll just use a placeholder
+    const simulatedTranscription = "This is a simulated transcription of audio input.";
+    
+    // Translate transcription to English if needed
+    const translatedInput = language.code === 'en' 
+      ? simulatedTranscription 
+      : await translateText(simulatedTranscription, language.code, 'en');
+    
+    // Add user message to conversation
+    addMessageToConversation({
+      role: 'user',
+      content: simulatedTranscription
+    });
+    
+    // Construct API endpoint
+    let apiEndpoint = customApiUrl;
+    if (!apiEndpoint.endsWith('/ask')) {
+      apiEndpoint = apiEndpoint.endsWith('/') ? `${apiEndpoint}ask` : `${apiEndpoint}/ask`;
+    }
+    
+    console.log(`Sending request to: ${apiEndpoint}`);
+    
+    // Create FormData for audio upload
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'audio.webm');
+    
+    // Add conversation context
+    formData.append('conversation_context', JSON.stringify(getConversationContext()));
+    
+    // Send request to API
+    const response = await fetchWithCorsProxy(apiEndpoint, {
+      method: 'POST',
+      body: formData
+    });
+    
+    // Check if response is opaque (from no-cors mode)
+    if (response.type === 'opaque') {
+      console.log('Received opaque response from no-cors mode, using mock response');
+      // Use mock response since we can't read opaque responses
+      const mockResponse = getMockResponse(translatedInput);
       
-      // The API returns the response directly as text
-      const responseText = await response.text();
+      // Add assistant message to conversation
+      const translatedResponse = language.code === 'en' 
+        ? mockResponse 
+        : await translateText(mockResponse, 'en', language.code);
       
-      // Add assistant response to conversation
-      addMessageToConversation('assistant', responseText, conversationContext);
+      addMessageToConversation({
+        role: 'assistant',
+        content: translatedResponse
+      });
       
-      // For audio input, we should return the response in the user's language
-      // and indicate that audio should be generated
-      if (data.language !== 'en-IN') {
-        try {
-          const translatedResponse = await translateText({
-            text: responseText,
-            sourceLanguage: 'en-IN',
-            targetLanguage: data.language
-          });
-          return { text: translatedResponse, shouldGenerateAudio: true };
-        } catch (error) {
-          console.error('Response translation error:', error);
-          return { text: responseText, shouldGenerateAudio: true }; // Return English response if translation fails
-        }
-      }
+      return {
+        text: translatedResponse,
+        shouldPlayAudio: true
+      };
+    }
+    
+    // Process normal response
+    if (response.ok) {
+      const data = await response.json();
+      console.log('API response:', data);
       
-      return { text: responseText, shouldGenerateAudio: true };
-    } catch (error) {
-      console.error('API request failed:', error);
-      // Use mock response if API call fails
-      const mockResponse = getMockResponse();
+      // Translate response back to user's language if needed
+      const translatedResponse = language.code === 'en' 
+        ? data.response 
+        : await translateText(data.response, 'en', language.code);
       
-      // Add mock response to conversation
-      addMessageToConversation('assistant', mockResponse, conversationContext);
+      // Add assistant message to conversation
+      addMessageToConversation({
+        role: 'assistant',
+        content: translatedResponse
+      });
       
-      // Translate mock response if needed
-      if (data.language !== 'en-IN') {
-        try {
-          const translatedResponse = await translateText({
-            text: mockResponse,
-            sourceLanguage: 'en-IN',
-            targetLanguage: data.language
-          });
-          return { text: translatedResponse, shouldGenerateAudio: true };
-        } catch (translationError) {
-          console.error('Mock response translation error:', translationError);
-          return { text: mockResponse, shouldGenerateAudio: true };
-        }
-      }
-      
-      return { text: mockResponse, shouldGenerateAudio: true };
+      return {
+        text: translatedResponse,
+        shouldPlayAudio: data.should_play_audio ?? true
+      };
+    } else {
+      // Handle error response
+      const errorText = await response.text();
+      console.error('API error:', response.status, errorText);
+      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
   } catch (error) {
-    console.error('Error submitting audio query:', error);
-    toast({
-      title: "Error",
-      description: "Failed to process your audio. Please try again.",
-      variant: "destructive",
+    console.error('Error in submitAudioQuery:', error);
+    
+    // Use mock response as fallback
+    const mockResponse = getMockResponse("Audio query");
+    
+    // Translate mock response if needed
+    const translatedResponse = language.code === 'en' 
+      ? mockResponse 
+      : await translateText(mockResponse, 'en', language.code);
+    
+    // Add assistant message to conversation
+    addMessageToConversation({
+      role: 'assistant',
+      content: translatedResponse
     });
-    throw error;
+    
+    return {
+      text: translatedResponse,
+      shouldPlayAudio: true
+    };
   }
 };

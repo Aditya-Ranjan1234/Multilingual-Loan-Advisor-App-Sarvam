@@ -25,13 +25,14 @@ const TextInput = ({ onResponseReceived, setLoading, toggleCalculator }: TextInp
       setLoading(true);
       
       // Submit the query to get a response
-      const response = await submitTextQuery({
-        text: text.trim(),
-        language: currentLanguage.code,
-      }, customApiUrl);
+      const response = await submitTextQuery(
+        text.trim(),
+        customApiUrl,
+        currentLanguage
+      );
       
       // Show the normal response
-      onResponseReceived(response, false);
+      onResponseReceived(response.text, response.shouldPlayAudio);
       
       setText('');
     } catch (error) {

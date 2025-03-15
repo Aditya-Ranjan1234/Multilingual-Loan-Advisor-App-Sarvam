@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit2, Check, AlertCircle } from 'lucide-react';
+import { Edit2, Check, AlertCircle, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useApiUrl } from '@/contexts/ApiUrlContext';
@@ -11,6 +11,7 @@ const ApiUrlInput = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(customApiUrl);
   const [error, setError] = useState('');
+  const [showCorsInfo, setShowCorsInfo] = useState(false);
   const { translate } = useLanguage();
 
   // Validate URL format
@@ -90,6 +91,35 @@ const ApiUrlInput = () => {
         <div className="text-xs text-muted-foreground mt-1">
           Note: API requests will be sent to {customApiUrl}/ask
         </div>
+        
+        <div className="flex items-center mt-1">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 p-0 text-xs text-blue-500"
+            onClick={() => setShowCorsInfo(!showCorsInfo)}
+          >
+            <Info size={12} className="mr-1" />
+            {showCorsInfo ? "Hide CORS information" : "Having CORS issues?"}
+          </Button>
+        </div>
+        
+        {showCorsInfo && (
+          <div className="text-xs bg-blue-50 p-3 rounded-md mt-1 text-blue-800">
+            <p className="font-medium mb-1">If you're using a custom API endpoint, you may need to enable CORS on your server:</p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>For ngrok endpoints, use <code className="bg-blue-100 px-1 rounded">ngrok http --host-header=rewrite YOUR_PORT</code></li>
+              <li>Add CORS headers to your server responses:
+                <pre className="bg-blue-100 p-1 mt-1 rounded overflow-x-auto">
+                  Access-Control-Allow-Origin: *<br/>
+                  Access-Control-Allow-Methods: GET, POST, OPTIONS<br/>
+                  Access-Control-Allow-Headers: Content-Type
+                </pre>
+              </li>
+              <li>The app will automatically try CORS proxies if direct requests fail</li>
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
