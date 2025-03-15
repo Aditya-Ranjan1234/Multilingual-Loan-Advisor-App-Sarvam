@@ -46,17 +46,17 @@ export const uiTranslations: UITranslations = {
     'te-IN': 'మీ అన్ని వ్యక్తిగత రుణ ప్రశ్నలకు తక్షణ సమాధానాలు పొందండి.'
   },
   'app.name': {
-    'en-IN': 'Loan Genius',
-    'hi-IN': 'लोन जीनियस',
-    'bn-IN': 'লোন জিনিয়াস',
-    'gu-IN': 'લોન જીનિયસ',
-    'kn-IN': 'ಲೋನ್ ಜೀನಿಯಸ್',
-    'ml-IN': 'ലോൺ ജീനിയസ്',
-    'mr-IN': 'लोन जीनियस',
-    'od-IN': 'ଲୋନ୍ ଜିନିଅସ୍',
-    'pa-IN': 'ਲੋਨ ਜੀਨੀਅਸ',
-    'ta-IN': 'லோன் ஜீனியஸ்',
-    'te-IN': 'లోన్ జీనియస్'
+    'en-IN': 'Loan Advisor',
+    'hi-IN': 'लोन एडवाइज़र',
+    'bn-IN': 'লোন অ্যাডভাইজর',
+    'gu-IN': 'લોન એડવાઇઝર',
+    'kn-IN': 'ಲೋನ್ ಅಡ್ವೈಸರ್',
+    'ml-IN': 'ലോൺ അഡ്വൈസർ',
+    'mr-IN': 'लोन अॅडवायझर',
+    'od-IN': 'ଲୋନ୍ ଆଡଭାଇଜର୍',
+    'pa-IN': 'ਲੋਨ ਐਡਵਾਈਜ਼ਰ',
+    'ta-IN': 'லோன் அட்வைசர்',
+    'te-IN': 'లోన్ అడ్వైజర్'
   },
   'app.subtitle': {
     'en-IN': 'Get instant answers to all your personal loan queries in your preferred language.',

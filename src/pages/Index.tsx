@@ -21,9 +21,14 @@ const Index = () => {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [shouldPlayAudio, setShouldPlayAudio] = useState(false);
-  // Ensure calculator is hidden by default
+  // IMPORTANT: Calculator is explicitly hidden by default and only shown when eligibility is mentioned
   const [showCalculator, setShowCalculator] = useState(false);
   const { translate } = useLanguage();
+
+  // Reset showCalculator to false when component mounts to ensure it's hidden by default
+  useEffect(() => {
+    setShowCalculator(false);
+  }, []);
 
   const handleResponseReceived = (newResponse: string, playAudio: boolean = false) => {
     setResponse(newResponse);

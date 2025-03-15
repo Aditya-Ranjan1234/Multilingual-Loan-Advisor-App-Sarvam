@@ -29,7 +29,9 @@ const TextInput = ({ onResponseReceived, setLoading, toggleCalculator }: TextInp
                lowerText.includes('qualify') || 
                lowerText.includes('calculator') ||
                lowerText.includes('loan amount') ||
-               lowerText.includes('how much loan');
+               lowerText.includes('how much loan') ||
+               lowerText.includes('how much can i borrow') ||
+               lowerText.includes('loan limit');
       }
       
       // Otherwise, translate to English first and then check
@@ -44,7 +46,9 @@ const TextInput = ({ onResponseReceived, setLoading, toggleCalculator }: TextInp
              lowerTranslated.includes('qualify') || 
              lowerTranslated.includes('calculator') ||
              lowerTranslated.includes('loan amount') ||
-             lowerTranslated.includes('how much loan');
+             lowerTranslated.includes('how much loan') ||
+             lowerTranslated.includes('how much can i borrow') ||
+             lowerTranslated.includes('loan limit');
     } catch (error) {
       console.error('Error checking eligibility keywords:', error);
       return false;
@@ -71,14 +75,14 @@ const TextInput = ({ onResponseReceived, setLoading, toggleCalculator }: TextInp
         // Show the calculator
         toggleCalculator();
         
-        // Add a suggestion to use the calculator
+        // Add a suggestion to use the calculator with a prominent message
         const calculatorSuggestion = await translateDynamic(
-          "I see you're asking about loan eligibility. Please use the Eligibility Calculator at the top of the page to get a personalized estimate based on your income.",
+          "I see you're asking about loan eligibility. I've opened our Loan Eligibility Calculator for you above. Please use it to get a personalized estimate based on your income and other factors.",
           currentLanguage.code
         );
         
         // Combine the suggestion with the original response
-        const combinedResponse = `${calculatorSuggestion}\n\n${response}`;
+        const combinedResponse = `**${calculatorSuggestion}**\n\n${response}`;
         onResponseReceived(combinedResponse, false);
       } else {
         // Just show the normal response
