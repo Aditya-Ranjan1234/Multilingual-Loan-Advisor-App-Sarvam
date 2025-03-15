@@ -117,7 +117,7 @@ export const submitTextQuery = async (data: LoanQueryData, customApiUrl: string)
     try {
       // Use the local proxy endpoint instead of the direct API URL
       // This will route through Vite's proxy to avoid CORS issues
-      const apiEndpoint = '/api/ask';
+      const apiEndpoint = '/ask';
       console.log('Sending request to:', apiEndpoint);
       
       // Prepare the request payload with conversation history
@@ -234,7 +234,7 @@ export const submitAudioQuery = async (data: LoanQueryData, customApiUrl: string
     try {
       // Use the local proxy endpoint instead of the direct API URL
       // This will route through Vite's proxy to avoid CORS issues
-      const apiEndpoint = '/api/ask';
+      const apiEndpoint = '/ask';
       console.log('Sending request to:', apiEndpoint);
       
       // Prepare the request payload with conversation history

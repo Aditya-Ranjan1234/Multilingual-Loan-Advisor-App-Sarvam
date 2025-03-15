@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useApiUrl } from '@/contexts/ApiUrlContext';
 import { submitAudioQuery } from '@/services/api';
-import { speechToText, translateText } from '@/services/sarvamAI';
+import { speechToText } from '@/services/sarvamAI';
 import { toast } from '@/components/ui/use-toast';
 
 type VoiceRecorderProps = {
@@ -50,42 +50,6 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
     };
   }, [isRecording]);
 
-  // Check if text contains eligibility-related keywords
-  const checkForEligibilityKeywords = async (inputText: string): Promise<boolean> => {
-    try {
-      // If the text is already in English, check directly
-      if (currentLanguage.code === 'en-IN') {
-        const lowerText = inputText.toLowerCase();
-        return lowerText.includes('eligib') || 
-               lowerText.includes('qualify') || 
-               lowerText.includes('calculator') ||
-               lowerText.includes('loan amount') ||
-               lowerText.includes('how much loan') ||
-               lowerText.includes('how much can i borrow') ||
-               lowerText.includes('loan limit');
-      }
-      
-      // Otherwise, translate to English first and then check
-      const translatedToEnglish = await translateText({
-        text: inputText,
-        sourceLanguage: currentLanguage.code,
-        targetLanguage: 'en-IN'
-      });
-      
-      const lowerTranslated = translatedToEnglish.toLowerCase();
-      return lowerTranslated.includes('eligib') || 
-             lowerTranslated.includes('qualify') || 
-             lowerTranslated.includes('calculator') ||
-             lowerTranslated.includes('loan amount') ||
-             lowerTranslated.includes('how much loan') ||
-             lowerTranslated.includes('how much can i borrow') ||
-             lowerTranslated.includes('loan limit');
-    } catch (error) {
-      console.error('Error checking eligibility keywords:', error);
-      return false;
-    }
-  };
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -128,9 +92,6 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
               // If transcription fails, we'll still have a default response from speechToText
             }
             
-            // Check if the transcribed text is related to loan eligibility
-            const isEligibilityQuery = await checkForEligibilityKeywords(transcribedText);
-            
             // Then, submit the transcribed text to get a response
             setLoading(true);
             const result = await submitAudioQuery({
@@ -139,24 +100,8 @@ const VoiceRecorder = ({ onResponseReceived, setLoading, toggleCalculator }: Voi
               text: transcribedText // Pass the transcribed text
             }, customApiUrl);
             
-            // If it's an eligibility query, show the calculator and add a suggestion
-            if (isEligibilityQuery && toggleCalculator) {
-              // Show the calculator
-              toggleCalculator();
-              
-              // Add a suggestion to use the calculator with a prominent message
-              const calculatorSuggestion = await translateDynamic(
-                "I see you're asking about loan eligibility. I've opened our Loan Eligibility Calculator for you above. Please use it to get a personalized estimate based on your income and other factors.",
-                currentLanguage.code
-              );
-              
-              // Combine the suggestion with the original response
-              const combinedResponse = `**${calculatorSuggestion}**\n\n${result.text}`;
-              onResponseReceived(combinedResponse, true);
-            } else {
-              // Show the response with audio playback enabled
-              onResponseReceived(result.text, true);
-            }
+            // Show the response with audio playback enabled
+            onResponseReceived(result.text, true);
           } catch (error) {
             console.error('Error processing audio:', error);
             

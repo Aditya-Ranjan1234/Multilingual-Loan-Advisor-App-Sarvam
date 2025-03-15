@@ -5,7 +5,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useApiUrl } from '@/contexts/ApiUrlContext';
 import { submitTextQuery } from '@/services/api';
-import { translateText } from '@/services/sarvamAI';
 
 type TextInputProps = {
   onResponseReceived: (response: string, shouldPlayAudio: boolean) => void;
@@ -14,46 +13,10 @@ type TextInputProps = {
 };
 
 const TextInput = ({ onResponseReceived, setLoading, toggleCalculator }: TextInputProps) => {
-  const { currentLanguage, translate, translateDynamic } = useLanguage();
+  const { currentLanguage, translate } = useLanguage();
   const { customApiUrl } = useApiUrl();
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Check if text contains eligibility-related keywords
-  const checkForEligibilityKeywords = async (inputText: string): Promise<boolean> => {
-    try {
-      // If the text is already in English, check directly
-      if (currentLanguage.code === 'en-IN') {
-        const lowerText = inputText.toLowerCase();
-        return lowerText.includes('eligib') || 
-               lowerText.includes('qualify') || 
-               lowerText.includes('calculator') ||
-               lowerText.includes('loan amount') ||
-               lowerText.includes('how much loan') ||
-               lowerText.includes('how much can i borrow') ||
-               lowerText.includes('loan limit');
-      }
-      
-      // Otherwise, translate to English first and then check
-      const translatedToEnglish = await translateText({
-        text: inputText,
-        sourceLanguage: currentLanguage.code,
-        targetLanguage: 'en-IN'
-      });
-      
-      const lowerTranslated = translatedToEnglish.toLowerCase();
-      return lowerTranslated.includes('eligib') || 
-             lowerTranslated.includes('qualify') || 
-             lowerTranslated.includes('calculator') ||
-             lowerTranslated.includes('loan amount') ||
-             lowerTranslated.includes('how much loan') ||
-             lowerTranslated.includes('how much can i borrow') ||
-             lowerTranslated.includes('loan limit');
-    } catch (error) {
-      console.error('Error checking eligibility keywords:', error);
-      return false;
-    }
-  };
 
   const handleSubmit = async () => {
     if (!text.trim()) return;
@@ -61,33 +24,14 @@ const TextInput = ({ onResponseReceived, setLoading, toggleCalculator }: TextInp
     try {
       setLoading(true);
       
-      // Check if the text is related to loan eligibility
-      const isEligibilityQuery = await checkForEligibilityKeywords(text.trim());
-      
       // Submit the query to get a response
       const response = await submitTextQuery({
         text: text.trim(),
         language: currentLanguage.code,
       }, customApiUrl);
       
-      // If it's an eligibility query, show the calculator and add a suggestion
-      if (isEligibilityQuery && toggleCalculator) {
-        // Show the calculator
-        toggleCalculator();
-        
-        // Add a suggestion to use the calculator with a prominent message
-        const calculatorSuggestion = await translateDynamic(
-          "I see you're asking about loan eligibility. I've opened our Loan Eligibility Calculator for you above. Please use it to get a personalized estimate based on your income and other factors.",
-          currentLanguage.code
-        );
-        
-        // Combine the suggestion with the original response
-        const combinedResponse = `**${calculatorSuggestion}**\n\n${response}`;
-        onResponseReceived(combinedResponse, false);
-      } else {
-        // Just show the normal response
-        onResponseReceived(response, false);
-      }
+      // Show the normal response
+      onResponseReceived(response, false);
       
       setText('');
     } catch (error) {
