@@ -104,7 +104,8 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
     if (currentLanguage.code === 'ml-IN') return 'നിങ്ങളുടെ അഭ്യർത്ഥന പ്രോസസ്സ് ചെയ്യുന്നു...';
     if (currentLanguage.code === 'mr-IN') return 'आपल्या विनंतीवर प्रक्रिया सुरू आहे...';
     if (currentLanguage.code === 'od-IN') return 'ଆପଣଙ୍କ ଅନୁରୋଧ ପ୍ରକ୍ରିୟାକରଣ ହେଉଛି...';
-    if (currentLanguage.code === 'pa-IN') return 'ਤੁਹਾਡੀ ਬੇਨਤੀ 'ਤੇ ਕਾਰਵਾਈ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...';
+    // Fix: Use double quotes to wrap the string containing a single quote
+    if (currentLanguage.code === 'pa-IN') return "ਤੁਹਾਡੀ ਬੇਨਤੀ 'ਤੇ ਕਾਰਵਾਈ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...";
     if (currentLanguage.code === 'ta-IN') return 'உங்கள் கோரிக்கை செயலாக்கப்படுகிறது...';
     if (currentLanguage.code === 'te-IN') return 'మీ అభ్యర్థనను ప్రాసెస్ చేస్తోంది...';
     return 'Processing your request...';
