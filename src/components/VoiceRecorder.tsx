@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useApiUrl } from '@/contexts/ApiUrlContext';
 import { submitAudioQuery } from '@/services/api';
+import { speechToText } from '@/services/sarvamAI';
 import { toast } from '@/components/ui/use-toast';
 
 type VoiceRecorderProps = {
@@ -13,13 +13,14 @@ type VoiceRecorderProps = {
 };
 
 const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) => {
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, translate } = useLanguage();
   const { customApiUrl } = useApiUrl();
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [recordingTime, setRecordingTime] = useState(0);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [processingAudio, setProcessingAudio] = useState(false);
 
   // Request microphone permission
   useEffect(() => {
@@ -75,16 +76,33 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
         
         if (audioBlob.size > 0) {
           try {
+            setProcessingAudio(true);
+            
+            // First, convert speech to text in the user's language
+            const transcribedText = await speechToText({
+              audio: audioBlob,
+              languageCode: currentLanguage.code
+            });
+            
+            // Then, submit the transcribed text to get a response
             setLoading(true);
             const result = await submitAudioQuery({
               audio: audioBlob,
               language: currentLanguage.code,
+              text: transcribedText // Pass the transcribed text
             }, customApiUrl);
             
-            onResponseReceived(result.text, result.shouldGenerateAudio);
+            // Show the response with audio playback enabled
+            onResponseReceived(result.text, true);
           } catch (error) {
             console.error('Error processing audio:', error);
+            toast({
+              title: translate('error.title') || "Error",
+              description: translate('error.audio') || "Could not process your audio. Please try again.",
+              variant: "destructive",
+            });
           } finally {
+            setProcessingAudio(false);
             setLoading(false);
           }
         }
@@ -102,8 +120,8 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
       console.error('Error accessing microphone:', error);
       setPermissionDenied(true);
       toast({
-        title: "Microphone Access Denied",
-        description: "Please allow microphone access to use voice recording.",
+        title: translate('error.title') || "Error",
+        description: translate('error.microphone') || "Could not access your microphone. Please check permissions.",
         variant: "destructive",
       });
     }
@@ -124,86 +142,40 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
     }
   };
 
-  const getRecordingText = () => {
-    if (currentLanguage.code === 'en-IN') return "Recording...";
-    if (currentLanguage.code === 'hi-IN') return "रिकॉर्डिंग...";
-    if (currentLanguage.code === 'bn-IN') return "রেকর্ডিং হচ্ছে...";
-    if (currentLanguage.code === 'gu-IN') return "રેકોર્ડિંગ...";
-    if (currentLanguage.code === 'kn-IN') return "ರೆಕಾರ್ಡಿಂಗ್...";
-    if (currentLanguage.code === 'ml-IN') return "റെക്കോർഡിംഗ്...";
-    if (currentLanguage.code === 'mr-IN') return "रेकॉर्डिंग...";
-    if (currentLanguage.code === 'od-IN') return "ରେକର୍ଡିଂ...";
-    if (currentLanguage.code === 'pa-IN') return "ਰਿਕਾਰਡਿੰਗ...";
-    if (currentLanguage.code === 'ta-IN') return "பதிவு செய்கிறது...";
-    if (currentLanguage.code === 'te-IN') return "రికార్డింగ్...";
-    return "Recording...";
-  };
-
-  const getClickToRecordText = () => {
-    if (currentLanguage.code === 'en-IN') return `Click to record in English`;
-    if (currentLanguage.code === 'hi-IN') return `हिंदी में रिकॉर्ड करने के लिए क्लिक करें`;
-    if (currentLanguage.code === 'bn-IN') return `বাংলায় রেকর্ড করতে ক্লিক করুন`;
-    if (currentLanguage.code === 'gu-IN') return `ગુજરાતીમાં રેકોર્ડ કરવા માટે ક્લિક કરો`;
-    if (currentLanguage.code === 'kn-IN') return `ಕನ್ನಡದಲ್ಲಿ ರೆಕಾರ್ಡ್ ಮಾಡಲು ಕ್ಲಿಕ್ ಮಾಡಿ`;
-    if (currentLanguage.code === 'ml-IN') return `മലയാളത്തിൽ റെക്കോർഡ് ചെയ്യാൻ ക്ലിക്ക് ചെയ്യുക`;
-    if (currentLanguage.code === 'mr-IN') return `मराठीत रेकॉर्ड करण्यासाठी क्लिक करा`;
-    if (currentLanguage.code === 'od-IN') return `ଓଡିଆରେ ରେକର୍ଡ କରିବାକୁ କ୍ଲିକ୍ କରନ୍ତୁ`;
-    if (currentLanguage.code === 'pa-IN') return `ਪੰਜਾਬੀ ਵਿੱਚ ਰਿਕਾਰਡ ਕਰਨ ਲਈ ਕਲਿੱਕ ਕਰੋ`;
-    if (currentLanguage.code === 'ta-IN') return `தமிழில் பதிவு செய்ய கிளிக் செய்யவும்`;
-    if (currentLanguage.code === 'te-IN') return `తెలుగులో రికార్డ్ చేయడానికి క్లిక్ చేయండి`;
-    return `Click to record in ${currentLanguage.name}`;
-  };
-
-  const getMicrophoneDeniedText = () => {
-    if (currentLanguage.code === 'en-IN') return "Microphone access denied";
-    if (currentLanguage.code === 'hi-IN') return "माइक्रोफोन एक्सेस अस्वीकृत";
-    if (currentLanguage.code === 'bn-IN') return "মাইক্রোফোন অ্যাক্সেস অস্বীকৃত";
-    if (currentLanguage.code === 'gu-IN') return "માઇક્રોફોન ઍક્સેસ નકારી";
-    if (currentLanguage.code === 'kn-IN') return "ಮೈಕ್ರೋಫೋನ್ ಪ್ರವೇಶ ನಿರಾಕರಿಸಲಾಗಿದೆ";
-    if (currentLanguage.code === 'ml-IN') return "മൈക്രോഫോൺ ആക്സസ് നിഷേധിച്ചു";
-    if (currentLanguage.code === 'mr-IN') return "मायक्रोफोन ऍक्सेस नाकारले";
-    if (currentLanguage.code === 'od-IN') return "ମାଇକ୍ରୋଫୋନ୍ ଆକ୍ସେସ୍ ପ୍ରତ୍ୟାଖ୍ୟାନ କରାଗଲା";
-    if (currentLanguage.code === 'pa-IN') return "ਮਾਈਕ੍ਰੋਫੋਨ ਪਹੁੰਚ ਤੋਂ ਇਨਕਾਰ ਕੀਤਾ ਗਿਆ";
-    if (currentLanguage.code === 'ta-IN') return "மைக்ரோஃபோன் அணுகல் மறுக்கப்பட்டது";
-    if (currentLanguage.code === 'te-IN') return "మైక్రోఫోన్ యాక్సెస్ నిరాకరించబడింది";
-    return "Microphone access denied";
-  };
-
   return (
     <div className="flex flex-col items-center">
+      {permissionDenied ? (
+        <div className="text-red-500 mb-4 flex items-center">
+          <MicOff size={18} className="mr-2" />
+          {translate('voice.denied') || 'Microphone access denied'}
+        </div>
+      ) : processingAudio ? (
+        <div className="text-loan-blue mb-4 flex items-center">
+          <Loader2 size={18} className="mr-2 animate-spin" />
+          {translate('voice.processing') || 'Processing audio...'}
+        </div>
+      ) : isRecording ? (
+        <div className="text-loan-blue mb-4 animate-pulse">
+          {translate('voice.recording').replace('{time}', formatTime(recordingTime)) || `Recording... ${formatTime(recordingTime)}`}
+        </div>
+      ) : (
+        <div className="text-loan-gray-500 mb-4">
+          {translate('voice.prompt') || 'Click to record'}
+        </div>
+      )}
+      
       <Button
         onClick={toggleRecording}
-        className={`rounded-full w-14 h-14 flex items-center justify-center transition-all ${
+        disabled={permissionDenied || processingAudio}
+        className={`rounded-full w-16 h-16 p-0 ${
           isRecording 
-            ? 'bg-loan-red hover:bg-loan-red/90 animate-pulse-soft' 
+            ? 'bg-red-500 hover:bg-red-600' 
             : 'bg-loan-blue hover:bg-loan-blue/90'
         }`}
-        disabled={permissionDenied}
+        aria-label={isRecording ? (translate('voice.stop') || 'Stop recording') : (translate('voice.start') || 'Start recording')}
       >
-        {isRecording ? (
-          <MicOff size={24} className="text-white" />
-        ) : (
-          <Mic size={24} className="text-white" />
-        )}
+        <Mic size={24} className="text-white" />
       </Button>
-      
-      {isRecording && (
-        <div className="mt-2 text-sm font-medium text-loan-red animate-pulse-soft">
-          {getRecordingText()} {formatTime(recordingTime)}
-        </div>
-      )}
-      
-      {!isRecording && !permissionDenied && (
-        <div className="mt-2 text-xs text-gray-500">
-          {getClickToRecordText()}
-        </div>
-      )}
-      
-      {permissionDenied && (
-        <div className="mt-2 text-xs text-loan-red">
-          {getMicrophoneDeniedText()}
-        </div>
-      )}
     </div>
   );
 };

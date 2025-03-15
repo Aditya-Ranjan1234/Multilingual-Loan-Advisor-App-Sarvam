@@ -1,13 +1,14 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
 
 const Header = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { translate } = useLanguage();
 
   return (
     <header className="w-full py-4 px-6 bg-white/80 backdrop-blur-md border-b border-gray-100 fixed top-0 z-10">
@@ -17,7 +18,7 @@ const Header = () => {
             <span className="text-white font-bold text-xl">L</span>
           </div>
           <h1 className="font-display text-xl font-semibold bg-gradient-to-r from-loan-blue to-loan-indigo bg-clip-text text-transparent">
-            Loan Genius
+            {translate('app.name') || 'Loan Genius'}
           </h1>
         </div>
         
@@ -48,7 +49,7 @@ const Header = () => {
             className="text-loan-blue hover:text-loan-indigo transition-colors"
             onClick={() => navigate('/login')}
           >
-            Login
+            {translate('auth.login') || 'Login'}
           </Button>
         )}
       </div>
