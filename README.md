@@ -2,7 +2,10 @@
 
 A multilingual loan advisory application developed for Track 2 of the Great Bengaluru Hackathon. This application helps users get loan-related information and advice in their preferred language.
 
-![Alt text](images/hack.jpg)
+<p align="center">
+  <img src="images/hack.jpg" height="400">
+</p>
+
 
 ## 🌟 Features
 
