@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
+import { TranslatableText } from './TranslatableText';
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -18,7 +19,7 @@ const Header = () => {
             <span className="text-primary-foreground font-bold text-xl">L</span>
           </div>
           <h1 className="font-display text-xl font-semibold bg-gradient-to-r from-primary to-indigo-600 bg-clip-text text-transparent">
-            {translate('app.name') || 'Loan Genius'}
+            <TranslatableText text={translate('app.name') || 'Loan Advisor'} />
           </h1>
         </div>
         
@@ -49,7 +50,7 @@ const Header = () => {
             className="text-primary hover:text-primary/80 transition-colors"
             onClick={() => navigate('/login')}
           >
-            {translate('auth.login') || 'Login'}
+            <TranslatableText text={translate('auth.login') || 'Login'} />
           </Button>
         )}
       </div>

@@ -1,62 +1,124 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
 import { Building, CreditCard, Calculator, ChevronRight, Shield, Clock, Percent, Users } from 'lucide-react';
 import ApiUrlInput from '@/components/ApiUrlInput';
+import TranslatableText from '@/components/TranslatableText';
+import { usePageTranslation } from '@/hooks/usePageTranslation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Home = () => {
   const { theme } = useTheme();
+  const [isClient, setIsClient] = useState(false);
 
+  // Set isClient to true after component mounts to avoid hydration issues
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Define content to be translated
+  const pageContent = {
+    heroTitle: 'Your Trusted Partner for All Loan Solutions',
+    heroSubtitle: 'Get personalized loan recommendations and expert advice in multiple Indian languages.',
+    exploreLoans: 'Explore Loans',
+    loanCalculator: 'Loan Calculator',
+    multilingualSupport: 'Multilingual Loan Assistance',
+    multilingualDescription: 'Our AI-powered chatbot provides loan information in 11 Indian languages, making financial services accessible to everyone.',
+    loanProductsTitle: 'Explore Our Loan Products',
+    loanProductsDescription: 'We offer a wide range of loan products tailored to meet your specific financial needs.',
+    whyChooseUs: 'Why Choose Us',
+    whyChooseUsDescription: 'We strive to provide the best loan experience with features that set us apart.',
+    configureApi: 'Configure API Settings',
+    configureApiDescription: 'Customize the chatbot\'s API endpoint to connect with your own backend services.'
+  };
+
+  // Loan types content
+  const loanTypesContent = {
+    personalLoansTitle: 'Personal Loans',
+    personalLoansDescription: 'Quick access to funds for personal expenses with minimal documentation.',
+    homeLoansTitle: 'Home Loans',
+    homeLoansDescription: 'Realize your dream of owning a home with competitive interest rates.',
+    carLoansTitle: 'Car Loans',
+    carLoansDescription: 'Drive your dream car with flexible repayment options.',
+    educationLoansTitle: 'Education Loans',
+    educationLoansDescription: 'Invest in your future with education loans for higher studies.',
+    learnMore: 'Learn More'
+  };
+
+  // Features content
+  const featuresContent = {
+    quickApprovalTitle: 'Quick Approval',
+    quickApprovalDescription: 'Get your loan approved within 24-48 hours with minimal documentation.',
+    competitiveRatesTitle: 'Competitive Rates',
+    competitiveRatesDescription: 'Enjoy some of the lowest interest rates in the market.',
+    flexibleRepaymentTitle: 'Flexible Repayment',
+    flexibleRepaymentDescription: 'Choose from multiple repayment options that suit your financial situation.',
+    secureProcessTitle: 'Secure Process',
+    secureProcessDescription: 'Your data is protected with bank-grade security throughout the application process.'
+  };
+
+  // Use the custom hook to translate the content
+  const { translatedContent, isLoading } = usePageTranslation(pageContent);
+  const { translatedContent: translatedLoanTypes, isLoading: isLoadingLoanTypes } = usePageTranslation(loanTypesContent);
+  const { translatedContent: translatedFeatures, isLoading: isLoadingFeatures } = usePageTranslation(featuresContent);
+
+  // Define loan types with translated content
   const loanTypes = [
     {
-      title: 'Personal Loans',
+      title: translatedLoanTypes.personalLoansTitle,
       icon: <Users size={24} />,
-      description: 'Quick access to funds for personal expenses with minimal documentation.',
+      description: translatedLoanTypes.personalLoansDescription,
       color: theme === 'dark' ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-700',
     },
     {
-      title: 'Home Loans',
+      title: translatedLoanTypes.homeLoansTitle,
       icon: <Building size={24} />,
-      description: 'Realize your dream of owning a home with competitive interest rates.',
+      description: translatedLoanTypes.homeLoansDescription,
       color: theme === 'dark' ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-700',
     },
     {
-      title: 'Car Loans',
+      title: translatedLoanTypes.carLoansTitle,
       icon: <CreditCard size={24} />,
-      description: 'Drive your dream car with flexible repayment options.',
+      description: translatedLoanTypes.carLoansDescription,
       color: theme === 'dark' ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-700',
     },
     {
-      title: 'Education Loans',
+      title: translatedLoanTypes.educationLoansTitle,
       icon: <Shield size={24} />,
-      description: 'Invest in your future with education loans for higher studies.',
+      description: translatedLoanTypes.educationLoansDescription,
       color: theme === 'dark' ? 'bg-yellow-900 text-yellow-300' : 'bg-yellow-100 text-yellow-700',
     },
   ];
 
+  // Define features with translated content
   const features = [
     {
-      title: 'Quick Approval',
+      title: translatedFeatures.quickApprovalTitle,
       icon: <Clock size={24} />,
-      description: 'Get your loan approved within 24-48 hours with minimal documentation.',
+      description: translatedFeatures.quickApprovalDescription,
     },
     {
-      title: 'Competitive Rates',
+      title: translatedFeatures.competitiveRatesTitle,
       icon: <Percent size={24} />,
-      description: 'Enjoy some of the lowest interest rates in the market.',
+      description: translatedFeatures.competitiveRatesDescription,
     },
     {
-      title: 'Flexible Repayment',
+      title: translatedFeatures.flexibleRepaymentTitle,
       icon: <Calculator size={24} />,
-      description: 'Choose from multiple repayment options that suit your financial situation.',
+      description: translatedFeatures.flexibleRepaymentDescription,
     },
     {
-      title: 'Secure Process',
+      title: translatedFeatures.secureProcessTitle,
       icon: <Shield size={24} />,
-      description: 'Your data is protected with bank-grade security throughout the application process.',
+      description: translatedFeatures.secureProcessDescription,
     },
   ];
+
+  // Loading skeleton for text
+  const TextSkeleton = ({ width = 'w-full', height = 'h-6', className = '' }: { width?: string, height?: string, className?: string }) => (
+    <Skeleton className={`${width} ${height} ${className} rounded-md`} />
+  );
 
   return (
     <div>
@@ -69,10 +131,14 @@ const Home = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
-                Your Trusted Partner for All Loan Solutions
+                {isClient ? (
+                  isLoading ? <TextSkeleton /> : translatedContent.heroTitle
+                ) : pageContent.heroTitle}
               </h1>
               <p className="text-lg text-white/90 mb-8">
-                Get personalized loan recommendations and expert advice in multiple Indian languages.
+                {isClient ? (
+                  isLoading ? <TextSkeleton /> : translatedContent.heroSubtitle
+                ) : pageContent.heroSubtitle}
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link
@@ -82,7 +148,9 @@ const Home = () => {
                     theme === 'dark' ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-white text-loan-blue hover:bg-gray-100"
                   )}
                 >
-                  Explore Loans
+                  {isClient ? (
+                    isLoading ? "Explore Loans" : translatedContent.exploreLoans
+                  ) : pageContent.exploreLoans}
                   <ChevronRight size={18} className="ml-1" />
                 </Link>
                 <Link
@@ -92,7 +160,9 @@ const Home = () => {
                     theme === 'dark' ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-loan-blue/20 text-white hover:bg-loan-blue/30"
                   )}
                 >
-                  Loan Calculator
+                  {isClient ? (
+                    isLoading ? "Loan Calculator" : translatedContent.loanCalculator
+                  ) : pageContent.loanCalculator}
                   <Calculator size={18} className="ml-1" />
                 </Link>
               </div>
@@ -111,13 +181,22 @@ const Home = () => {
                   "text-xl font-semibold mb-2",
                   theme === 'dark' ? "text-white" : "text-loan-gray-800"
                 )}>
-                  Multilingual Loan Assistance
+                  {isClient ? (
+                    isLoading ? <TextSkeleton width="w-3/4" /> : translatedContent.multilingualSupport
+                  ) : pageContent.multilingualSupport}
                 </h3>
                 <p className={cn(
                   "mb-4",
                   theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
                 )}>
-                  Our AI-powered chatbot provides loan information in 11 Indian languages, making financial services accessible to everyone.
+                  {isClient ? (
+                    isLoading ? (
+                      <>
+                        <TextSkeleton className="mb-2" />
+                        <TextSkeleton width="w-5/6" />
+                      </>
+                    ) : translatedContent.multilingualDescription
+                  ) : pageContent.multilingualDescription}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {['English', 'हिन्दी', 'தமிழ்', 'తెలుగు', 'ಕನ್ನಡ'].map((lang) => (
@@ -152,13 +231,17 @@ const Home = () => {
               "text-3xl font-bold mb-4",
               theme === 'dark' ? "text-white" : "text-loan-gray-800"
             )}>
-              Explore Our Loan Products
+              {isClient ? (
+                isLoading ? <TextSkeleton width="w-1/3" className="mx-auto" /> : translatedContent.loanProductsTitle
+              ) : pageContent.loanProductsTitle}
             </h2>
             <p className={cn(
               "max-w-2xl mx-auto",
               theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
             )}>
-              We offer a wide range of loan products tailored to meet your specific financial needs.
+              {isClient ? (
+                isLoading ? <TextSkeleton width="w-2/3" className="mx-auto" /> : translatedContent.loanProductsDescription
+              ) : pageContent.loanProductsDescription}
             </p>
           </div>
 
@@ -181,13 +264,18 @@ const Home = () => {
                   "text-xl font-semibold mb-2",
                   theme === 'dark' ? "text-white" : "text-loan-gray-800"
                 )}>
-                  {loan.title}
+                  {isClient && isLoadingLoanTypes ? <TextSkeleton width="w-3/4" /> : loan.title}
                 </h3>
                 <p className={cn(
                   "mb-4",
                   theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
                 )}>
-                  {loan.description}
+                  {isClient && isLoadingLoanTypes ? (
+                    <>
+                      <TextSkeleton className="mb-2" />
+                      <TextSkeleton width="w-5/6" />
+                    </>
+                  ) : loan.description}
                 </p>
                 <Link
                   to="/loans"
@@ -196,7 +284,9 @@ const Home = () => {
                     theme === 'dark' ? "text-blue-400 hover:text-blue-300" : "text-loan-blue hover:text-loan-blue/80"
                   )}
                 >
-                  Learn More
+                  {isClient ? (
+                    isLoadingLoanTypes ? "Learn More" : translatedLoanTypes.learnMore
+                  ) : "Learn More"}
                   <ChevronRight size={16} className="ml-1" />
                 </Link>
               </div>
@@ -216,13 +306,17 @@ const Home = () => {
               "text-3xl font-bold mb-4",
               theme === 'dark' ? "text-white" : "text-loan-gray-800"
             )}>
-              Why Choose Us
+              {isClient ? (
+                isLoading ? <TextSkeleton width="w-1/4" className="mx-auto" /> : translatedContent.whyChooseUs
+              ) : pageContent.whyChooseUs}
             </h2>
             <p className={cn(
               "max-w-2xl mx-auto",
               theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
             )}>
-              We strive to provide the best loan experience with features that set us apart.
+              {isClient ? (
+                isLoading ? <TextSkeleton width="w-2/3" className="mx-auto" /> : translatedContent.whyChooseUsDescription
+              ) : pageContent.whyChooseUsDescription}
             </p>
           </div>
 
@@ -245,12 +339,17 @@ const Home = () => {
                   "text-xl font-semibold mb-2",
                   theme === 'dark' ? "text-white" : "text-loan-gray-800"
                 )}>
-                  {feature.title}
+                  {isClient && isLoadingFeatures ? <TextSkeleton width="w-3/4" /> : feature.title}
                 </h3>
                 <p className={cn(
                   theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
                 )}>
-                  {feature.description}
+                  {isClient && isLoadingFeatures ? (
+                    <>
+                      <TextSkeleton className="mb-2" />
+                      <TextSkeleton width="w-5/6" />
+                    </>
+                  ) : feature.description}
                 </p>
               </div>
             ))}
@@ -266,13 +365,17 @@ const Home = () => {
               "text-3xl font-bold mb-4",
               theme === 'dark' ? "text-white" : "text-loan-gray-800"
             )}>
-              Configure API Settings
+              {isClient ? (
+                isLoading ? <TextSkeleton width="w-1/3" className="mx-auto" /> : translatedContent.configureApi
+              ) : pageContent.configureApi}
             </h2>
             <p className={cn(
               "max-w-2xl mx-auto",
               theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
             )}>
-              Customize the chatbot's API endpoint to connect with your own backend services.
+              {isClient ? (
+                isLoading ? <TextSkeleton width="w-2/3" className="mx-auto" /> : translatedContent.configureApiDescription
+              ) : pageContent.configureApiDescription}
             </p>
           </div>
           

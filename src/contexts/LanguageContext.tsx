@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { translateText } from '@/services/sarvamAI';
 
 // Define the available languages
@@ -567,44 +567,58 @@ export const uiTranslations: UITranslations = {
   }
 };
 
-type LanguageContextType = {
-  currentLanguage: Language;
-  setLanguage: (lang: Language) => void;
-  isEnglish: boolean;
-  translate: (key: string) => string;
-  translateDynamic: (text: string, targetLanguage?: string) => Promise<string>;
+// Type for the translation cache
+type TranslationCache = {
+  [key: string]: string;
 };
 
+// Type for the language context
+type LanguageContextType = {
+  currentLanguage: Language;
+  setLanguage: (language: Language) => void;
+  translate: (key: string) => string;
+  translateDynamic: (text: string, sourceLanguage?: string) => Promise<string>;
+  isTranslating: boolean;
+};
+
+// Create the context
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+// Translation cache to avoid redundant API calls
+const translationCache: TranslationCache = {};
+
+// Provider component
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [currentLanguage, setCurrentLanguage] = useState<Language>(() => {
-    // Try to get saved language from localStorage
+    // Try to get the language from localStorage
     const savedLanguage = localStorage.getItem('preferredLanguage');
     if (savedLanguage) {
       try {
         const parsed = JSON.parse(savedLanguage);
         const found = languages.find(lang => lang.code === parsed.code);
         if (found) return found;
-      } catch (error) {
-        console.error('Error parsing saved language:', error);
+      } catch (e) {
+        console.error('Error parsing saved language:', e);
       }
     }
-    return languages[0]; // Default to English
+    
+    // Default to English if no saved language or error
+    return languages[0];
   });
+  
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Save language preference to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('preferredLanguage', JSON.stringify(currentLanguage));
   }, [currentLanguage]);
 
-  const setLanguage = (lang: Language) => {
-    setCurrentLanguage(lang);
+  // Function to set the language
+  const setLanguage = (language: Language) => {
+    setCurrentLanguage(language);
   };
 
-  const isEnglish = currentLanguage.code === 'en-IN';
-
-  // Function to get UI text translations
+  // Function to translate UI text using predefined translations
   const translate = (key: string): string => {
     if (uiTranslations[key] && uiTranslations[key][currentLanguage.code]) {
       return uiTranslations[key][currentLanguage.code];
@@ -615,48 +629,72 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
       return uiTranslations[key]['en-IN'];
     }
     
-    // Return key as fallback if no translation found
+    // Return the key if no translation found
     return key;
   };
 
-  // Function to translate dynamic text using Sarvam API
-  const translateDynamic = async (text: string, targetLanguage?: string): Promise<string> => {
-    if (!text) return '';
+  // Function to dynamically translate any text using Sarvam API
+  const translateDynamic = useCallback(async (text: string, sourceLanguage: string = 'en-IN'): Promise<string> => {
+    // If current language is the same as source language, return the original text
+    if (currentLanguage.code === sourceLanguage) {
+      return text;
+    }
     
-    const target = targetLanguage || currentLanguage.code;
+    // Generate a cache key based on the text, source language, and target language
+    const cacheKey = `${sourceLanguage}:${currentLanguage.code}:${text}`;
     
-    // If already in target language, return as is
-    if (target === 'en-IN') return text;
+    // Check if translation is already in cache
+    if (translationCache[cacheKey]) {
+      return translationCache[cacheKey];
+    }
     
     try {
-      return await translateText({
+      setIsTranslating(true);
+      
+      // Call the Sarvam API to translate the text
+      const translatedText = await translateText({
         text,
-        sourceLanguage: 'en-IN',
-        targetLanguage: target
+        sourceLanguage,
+        targetLanguage: currentLanguage.code
       });
+      
+      // Cache the translation
+      translationCache[cacheKey] = translatedText;
+      
+      return translatedText;
     } catch (error) {
-      console.error('Dynamic translation error:', error);
+      console.error('Error translating text:', error);
       return text; // Return original text if translation fails
+    } finally {
+      setIsTranslating(false);
     }
-  };
+  }, [currentLanguage.code]);
 
   return (
     <LanguageContext.Provider value={{ 
       currentLanguage, 
       setLanguage, 
-      isEnglish,
-      translate,
-      translateDynamic
+      translate, 
+      translateDynamic,
+      isTranslating
     }}>
       {children}
     </LanguageContext.Provider>
   );
 };
 
+// Custom hook to use the language context
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
   if (context === undefined) {
     throw new Error('useLanguage must be used within a LanguageProvider');
   }
   return context;
+};
+
+// Function to clear the translation cache
+export const clearTranslationCache = () => {
+  Object.keys(translationCache).forEach(key => {
+    delete translationCache[key];
+  });
 };

@@ -7,6 +7,7 @@ import ThemeToggle from './ThemeToggle';
 import LanguageSelector from './LanguageSelector';
 import FloatingChatbot from './FloatingChatbot';
 import { Home, CreditCard, Calculator, Info, Phone, Menu, X } from 'lucide-react';
+import { TranslatableText } from './TranslatableText';
 
 type MainLayoutProps = {
   children: React.ReactNode;
@@ -20,10 +21,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   const navItems = [
     { path: '/', label: 'Home', icon: <Home size={18} /> },
-    { path: '/loans', label: 'Loan Products', icon: <CreditCard size={18} /> },
-    { path: '/calculator', label: 'Loan Calculator', icon: <Calculator size={18} /> },
+    { path: '/loans', label: 'Loans', icon: <CreditCard size={18} /> },
+    { path: '/calculator', label: 'Calculator', icon: <Calculator size={18} /> },
     { path: '/about', label: 'About Us', icon: <Info size={18} /> },
-    { path: '/contact', label: 'Contact', icon: <Phone size={18} /> },
+    { path: '/contact', label: 'Contact Us', icon: <Phone size={18} /> },
   ];
 
   const isActive = (path: string) => {
@@ -53,7 +54,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               "text-xl font-bold",
               theme === 'dark' ? "text-white" : "text-loan-gray-800"
             )}>
-              {translate('app.name') || "Loan Advisor"}
+              <TranslatableText text={translate('app.name') || "Loan Advisor"} />
             </span>
           </Link>
 
@@ -75,7 +76,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 )}
               >
                 <span className="mr-1.5">{item.icon}</span>
-                {item.label}
+                <TranslatableText text={item.label} />
               </Link>
             ))}
           </nav>
@@ -104,16 +105,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
           <div className={cn(
-            "md:hidden border-t",
-            theme === 'dark' ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            "md:hidden fixed inset-0 z-30 pt-16",
+            theme === 'dark' ? "bg-gray-800/95" : "bg-white/95"
           )}>
-            <div className="px-2 pt-2 pb-3 space-y-1">
+            <nav className="container mx-auto px-4 py-6 flex flex-col space-y-4">
               {navItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
+                  onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    "block px-3 py-2 rounded-md text-base font-medium flex items-center",
+                    "px-4 py-3 rounded-md text-base font-medium flex items-center",
                     isActive(item.path)
                       ? theme === 'dark'
                         ? "bg-gray-700 text-white"
@@ -122,65 +124,60 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                         ? "text-gray-300 hover:bg-gray-700 hover:text-white"
                         : "text-loan-gray-600 hover:bg-loan-gray-100"
                   )}
-                  onClick={() => setMobileMenuOpen(false)}
                 >
-                  <span className="mr-2">{item.icon}</span>
-                  {item.label}
+                  <span className="mr-3">{item.icon}</span>
+                  <TranslatableText text={item.label} />
                 </Link>
               ))}
-              <div className="px-3 py-3">
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <LanguageSelector />
               </div>
-            </div>
+            </nav>
           </div>
         )}
       </header>
 
       {/* Main content */}
-      <main className="flex-1">
+      <main className="flex-grow container mx-auto px-4 py-6 mt-16">
         {children}
       </main>
 
       {/* Footer */}
       <footer className={cn(
-        "border-t py-6",
+        "border-t py-8",
         theme === 'dark' ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
       )}>
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <h3 className={cn(
-                "text-lg font-semibold mb-3",
+                "text-lg font-semibold mb-4",
                 theme === 'dark' ? "text-white" : "text-loan-gray-800"
               )}>
-                {translate('app.name') || "Loan Advisor"}
+                <TranslatableText text="Loan Advisor" />
               </h3>
-              <p className={cn(
-                "text-sm",
-                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
-              )}>
-                Your trusted partner for all loan-related information and services.
+              <p className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"}>
+                <TranslatableText text="Get instant answers to all your personal loan queries in your preferred language." />
               </p>
             </div>
             <div>
               <h3 className={cn(
-                "text-lg font-semibold mb-3",
+                "text-lg font-semibold mb-4",
                 theme === 'dark' ? "text-white" : "text-loan-gray-800"
               )}>
-                Quick Links
+                <TranslatableText text="Quick Links" />
               </h3>
-              <ul className={cn(
-                "space-y-2 text-sm",
-                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
-              )}>
+              <ul className="space-y-2">
                 {navItems.map((item) => (
                   <li key={item.path}>
-                    <Link 
+                    <Link
                       to={item.path}
-                      className="hover:underline flex items-center"
+                      className={cn(
+                        "hover:underline",
+                        theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+                      )}
                     >
-                      <span className="mr-1.5">{item.icon}</span>
-                      {item.label}
+                      <TranslatableText text={item.label} />
                     </Link>
                   </li>
                 ))}
@@ -188,27 +185,21 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             </div>
             <div>
               <h3 className={cn(
-                "text-lg font-semibold mb-3",
+                "text-lg font-semibold mb-4",
                 theme === 'dark' ? "text-white" : "text-loan-gray-800"
               )}>
-                Contact Us
+                <TranslatableText text="Contact" />
               </h3>
-              <address className={cn(
-                "not-italic text-sm",
-                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
-              )}>
-                <p>123 Financial Street</p>
-                <p>Mumbai, Maharashtra 400001</p>
-                <p className="mt-2">Email: info@loanadvisor.com</p>
+              <address className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"}>
+                <p>Email: info@loanadvisor.com</p>
                 <p>Phone: +91 1234567890</p>
               </address>
             </div>
           </div>
-          <div className={cn(
-            "mt-8 pt-4 border-t text-center text-sm",
-            theme === 'dark' ? "border-gray-700 text-gray-400" : "border-gray-200 text-loan-gray-500"
-          )}>
-            &copy; {new Date().getFullYear()} Loan Advisor. All rights reserved.
+          <div className="mt-8 pt-8 border-t text-center text-sm">
+            <p className={theme === 'dark' ? "text-gray-400" : "text-loan-gray-500"}>
+              © {new Date().getFullYear()} Loan Advisor. <TranslatableText text="All rights reserved." />
+            </p>
           </div>
         </div>
       </footer>

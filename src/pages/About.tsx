@@ -1,227 +1,424 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
-import { Building2, Globe, Landmark, Users, Zap, MessageSquareText } from 'lucide-react';
+import { Building, Users, Award, Globe, MessageSquare, Phone } from 'lucide-react';
+import TranslatableText from '@/components/TranslatableText';
+import { usePageTranslation } from '@/hooks/usePageTranslation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const About = () => {
   const { theme } = useTheme();
+  const [isClient, setIsClient] = useState(false);
 
-  const banks = [
-    {
-      name: 'HDFC Bank',
-      logo: '/banks/hdfc.png',
-      description: 'One of India\'s leading private sector banks offering a wide range of loan products with competitive interest rates.',
-      website: 'https://www.hdfcbank.com'
-    },
-    {
-      name: 'State Bank of India (SBI)',
-      logo: '/banks/sbi.png',
-      description: 'India\'s largest public sector bank with extensive loan offerings and nationwide presence.',
-      website: 'https://www.onlinesbi.com'
-    },
-    {
-      name: 'Indian Overseas Bank (IOB)',
-      logo: '/banks/iob.png',
-      description: 'A major public sector bank with specialized loan products and services for various customer segments.',
-      website: 'https://www.iob.in'
-    },
-    {
-      name: 'ICICI Bank',
-      logo: '/banks/icici.png',
-      description: 'A leading private sector bank offering innovative loan products with digital-first application processes.',
-      website: 'https://www.icicibank.com'
-    },
-    {
-      name: 'Axis Bank',
-      logo: '/banks/axis.png',
-      description: 'A private sector bank known for quick loan approvals and customer-friendly policies.',
-      website: 'https://www.axisbank.com'
-    },
-    {
-      name: 'Bank of Baroda',
-      logo: '/banks/bob.png',
-      description: 'A major public sector bank with competitive interest rates and flexible repayment options.',
-      website: 'https://www.bankofbaroda.in'
-    }
-  ];
+  // Set isClient to true after component mounts to avoid hydration issues
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Define content to be translated
+  const pageContent = {
+    pageTitle: 'About Us',
+    pageDescription: 'Learn more about our mission, values, and the team behind our multilingual loan platform.',
+    ourMissionTitle: 'Our Mission',
+    ourMissionDescription: 'Our mission is to make financial services accessible to everyone, regardless of language barriers. We believe that everyone deserves access to clear, understandable information about loans and financial products in their preferred language.',
+    ourValuesTitle: 'Our Values',
+    inclusivityTitle: 'Inclusivity',
+    inclusivityDescription: 'We are committed to serving all communities across India by providing financial information in multiple languages.',
+    transparencyTitle: 'Transparency',
+    transparencyDescription: 'We believe in complete transparency in all our operations and loan information, with no hidden fees or terms.',
+    innovationTitle: 'Innovation',
+    innovationDescription: 'We continuously innovate to provide the best user experience and most accurate information using cutting-edge AI technology.',
+    customerFirstTitle: 'Customer First',
+    customerFirstDescription: 'Our customers are at the heart of everything we do. We strive to provide exceptional service and support.',
+    ourTeamTitle: 'Our Team',
+    ourTeamDescription: 'We are a diverse team of financial experts, technologists, and language specialists committed to breaking down language barriers in financial services.',
+    languageSupportTitle: 'Language Support',
+    languageSupportDescription: 'Our platform currently supports 11 Indian languages, with plans to expand to more languages in the future.',
+    contactUsTitle: 'Contact Us',
+    contactUsDescription: 'Have questions or feedback? We\'d love to hear from you. Reach out to our team through any of the channels below.',
+    emailLabel: 'Email',
+    phoneLabel: 'Phone',
+    addressLabel: 'Address'
+  };
+
+  // Use the custom hook to translate the content
+  const { translatedContent, isLoading } = usePageTranslation(pageContent);
+
+  // Loading skeleton for text
+  const TextSkeleton = ({ width = 'w-full', height = 'h-6', className = '' }: { width?: string, height?: string, className?: string }) => (
+    <Skeleton className={`${width} ${height} ${className} rounded-md`} />
+  );
 
   return (
-    <div className={cn(
-      "container mx-auto px-4 py-8",
-      theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
-    )}>
-      <section className="mb-12">
-        <h1 className={cn(
-          "text-3xl font-bold mb-4",
-          theme === 'dark' ? 'text-white' : 'text-loan-blue'
-        )}>About Our Multilingual Loan Assistant</h1>
-        <p className="text-lg mb-6">
-          Welcome to our comprehensive loan information platform designed to make financial services accessible to everyone, regardless of language barriers.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className={cn(
-            "p-6 rounded-lg",
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white shadow-md'
+    <div className="py-8 px-4">
+      <div className="container mx-auto max-w-5xl">
+        {/* Header Section */}
+        <div className="text-center mb-12">
+          <h1 className={cn(
+            "text-3xl font-bold mb-4",
+            theme === 'dark' ? "text-white" : "text-loan-gray-800"
           )}>
-            <h2 className={cn(
-              "text-xl font-semibold mb-3 flex items-center",
-              theme === 'dark' ? 'text-blue-400' : 'text-loan-blue'
-            )}>
-              <Globe className="mr-2 h-5 w-5" />
-              Our Mission
-            </h2>
-            <p>
-              Our mission is to bridge the gap between financial institutions and customers by providing accurate, accessible loan information in multiple Indian languages. We believe everyone deserves to understand their financial options clearly, regardless of their primary language.
-            </p>
-          </div>
-          <div className={cn(
-            "p-6 rounded-lg",
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white shadow-md'
+            {isClient ? (
+              isLoading ? <TextSkeleton width="w-1/3" className="mx-auto" /> : translatedContent.pageTitle
+            ) : pageContent.pageTitle}
+          </h1>
+          <p className={cn(
+            "max-w-2xl mx-auto",
+            theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
           )}>
-            <h2 className={cn(
-              "text-xl font-semibold mb-3 flex items-center",
-              theme === 'dark' ? 'text-blue-400' : 'text-loan-blue'
-            )}>
-              <Users className="mr-2 h-5 w-5" />
-              Who We Serve
-            </h2>
-            <p>
-              We serve individuals across India who are seeking loan information but face language barriers. Our platform is particularly valuable for those in rural and semi-urban areas where access to multilingual financial information may be limited.
-            </p>
-          </div>
+            {isClient ? (
+              isLoading ? <TextSkeleton width="w-2/3" className="mx-auto" /> : translatedContent.pageDescription
+            ) : pageContent.pageDescription}
+          </p>
         </div>
-      </section>
 
-      <section className="mb-12">
-        <h2 className={cn(
-          "text-2xl font-bold mb-6",
-          theme === 'dark' ? 'text-white' : 'text-loan-blue'
-        )}>Our Features</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className={cn(
-            "p-5 rounded-lg",
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white shadow-md'
-          )}>
-            <h3 className={cn(
-              "text-lg font-semibold mb-2 flex items-center",
-              theme === 'dark' ? 'text-blue-400' : 'text-loan-blue'
-            )}>
-              <MessageSquareText className="mr-2 h-5 w-5" />
-              Multilingual Support
-            </h3>
-            <p>
-              Our AI-powered chatbot provides loan information in multiple Indian languages, including Hindi, Tamil, Telugu, Bengali, Marathi, and more.
-            </p>
-          </div>
-          <div className={cn(
-            "p-5 rounded-lg",
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white shadow-md'
-          )}>
-            <h3 className={cn(
-              "text-lg font-semibold mb-2 flex items-center",
-              theme === 'dark' ? 'text-blue-400' : 'text-loan-blue'
-            )}>
-              <Zap className="mr-2 h-5 w-5" />
-              Loan Calculator
-            </h3>
-            <p>
-              Our interactive loan calculator helps you estimate EMIs, total interest, and repayment schedules for different loan types and amounts.
-            </p>
-          </div>
-          <div className={cn(
-            "p-5 rounded-lg",
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white shadow-md'
-          )}>
-            <h3 className={cn(
-              "text-lg font-semibold mb-2 flex items-center",
-              theme === 'dark' ? 'text-blue-400' : 'text-loan-blue'
-            )}>
-              <Building2 className="mr-2 h-5 w-5" />
-              Comprehensive Loan Information
-            </h3>
-            <p>
-              Detailed information about various loan types, eligibility criteria, documentation requirements, and application processes.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mb-12">
-        <h2 className={cn(
-          "text-2xl font-bold mb-6",
-          theme === 'dark' ? 'text-white' : 'text-loan-blue'
+        {/* Mission Section */}
+        <div className={cn(
+          "mb-12 p-6 rounded-xl",
+          theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white shadow-md"
         )}>
-          <Landmark className="inline mr-2 h-6 w-6" />
-          Partner Banks
-        </h2>
-        <p className="mb-6">
-          We provide information about loan products from various leading banks in India. While we are not directly affiliated with these banks, our platform helps you understand their loan offerings better.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {banks.map((bank, index) => (
-            <div key={index} className={cn(
-              "p-5 rounded-lg flex flex-col",
-              theme === 'dark' ? 'bg-gray-800' : 'bg-white shadow-md'
+          <div className="flex items-center mb-4">
+            <div className={cn(
+              "w-12 h-12 rounded-full flex items-center justify-center mr-4",
+              theme === 'dark' ? "bg-gray-700 text-blue-400" : "bg-loan-blue/10 text-loan-blue"
             )}>
-              <div className="flex items-center mb-3">
-                <div className="w-12 h-12 mr-3 flex items-center justify-center bg-white rounded-full p-1">
-                  <img 
-                    src={bank.logo} 
-                    alt={`${bank.name} logo`} 
-                    className="max-w-full max-h-full object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = '/banks/placeholder.png';
-                    }}
-                  />
+              <Building size={24} />
+            </div>
+            <h2 className={cn(
+              "text-2xl font-semibold",
+              theme === 'dark' ? "text-white" : "text-loan-gray-800"
+            )}>
+              {isClient ? (
+                isLoading ? <TextSkeleton width="w-3/4" /> : translatedContent.ourMissionTitle
+              ) : pageContent.ourMissionTitle}
+            </h2>
+          </div>
+          <p className={cn(
+            "text-lg",
+            theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+          )}>
+            {isClient ? (
+              isLoading ? (
+                <>
+                  <TextSkeleton className="mb-2" />
+                  <TextSkeleton width="w-5/6" />
+                </>
+              ) : translatedContent.ourMissionDescription
+            ) : pageContent.ourMissionDescription}
+          </p>
+        </div>
+
+        {/* Values Section */}
+        <div className="mb-12">
+          <h2 className={cn(
+            "text-2xl font-semibold mb-6 text-center",
+            theme === 'dark' ? "text-white" : "text-loan-gray-800"
+          )}>
+            {isClient ? (
+              isLoading ? <TextSkeleton width="w-1/4" className="mx-auto" /> : translatedContent.ourValuesTitle
+            ) : pageContent.ourValuesTitle}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={cn(
+              "p-6 rounded-xl",
+              theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white shadow-md"
+            )}>
+              <div className="flex items-center mb-4">
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center mr-3",
+                  theme === 'dark' ? "bg-gray-700 text-blue-400" : "bg-loan-blue/10 text-loan-blue"
+                )}>
+                  <Users size={20} />
                 </div>
                 <h3 className={cn(
-                  "text-lg font-semibold",
-                  theme === 'dark' ? 'text-blue-400' : 'text-loan-blue'
+                  "text-xl font-semibold",
+                  theme === 'dark' ? "text-white" : "text-loan-gray-800"
                 )}>
-                  {bank.name}
+                  {isClient ? (
+                    isLoading ? <TextSkeleton width="w-3/4" /> : translatedContent.inclusivityTitle
+                  ) : pageContent.inclusivityTitle}
                 </h3>
               </div>
-              <p className="mb-3 flex-grow">{bank.description}</p>
-              <a 
-                href={bank.website} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className={cn(
-                  "text-sm font-medium inline-flex items-center",
-                  theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-loan-blue hover:text-blue-700'
-                )}
-              >
-                <Globe className="mr-1 h-4 w-4" />
-                Visit Official Website
-              </a>
+              <p className={cn(
+                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+              )}>
+                {isClient ? (
+                  isLoading ? <TextSkeleton width="w-full" /> : translatedContent.inclusivityDescription
+                ) : pageContent.inclusivityDescription}
+              </p>
             </div>
-          ))}
+            <div className={cn(
+              "p-6 rounded-xl",
+              theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white shadow-md"
+            )}>
+              <div className="flex items-center mb-4">
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center mr-3",
+                  theme === 'dark' ? "bg-gray-700 text-blue-400" : "bg-loan-blue/10 text-loan-blue"
+                )}>
+                  <Award size={20} />
+                </div>
+                <h3 className={cn(
+                  "text-xl font-semibold",
+                  theme === 'dark' ? "text-white" : "text-loan-gray-800"
+                )}>
+                  {isClient ? (
+                    isLoading ? <TextSkeleton width="w-3/4" /> : translatedContent.transparencyTitle
+                  ) : pageContent.transparencyTitle}
+                </h3>
+              </div>
+              <p className={cn(
+                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+              )}>
+                {isClient ? (
+                  isLoading ? <TextSkeleton width="w-full" /> : translatedContent.transparencyDescription
+                ) : pageContent.transparencyDescription}
+              </p>
+            </div>
+            <div className={cn(
+              "p-6 rounded-xl",
+              theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white shadow-md"
+            )}>
+              <div className="flex items-center mb-4">
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center mr-3",
+                  theme === 'dark' ? "bg-gray-700 text-blue-400" : "bg-loan-blue/10 text-loan-blue"
+                )}>
+                  <Globe size={20} />
+                </div>
+                <h3 className={cn(
+                  "text-xl font-semibold",
+                  theme === 'dark' ? "text-white" : "text-loan-gray-800"
+                )}>
+                  {isClient ? (
+                    isLoading ? <TextSkeleton width="w-3/4" /> : translatedContent.innovationTitle
+                  ) : pageContent.innovationTitle}
+                </h3>
+              </div>
+              <p className={cn(
+                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+              )}>
+                {isClient ? (
+                  isLoading ? <TextSkeleton width="w-full" /> : translatedContent.innovationDescription
+                ) : pageContent.innovationDescription}
+              </p>
+            </div>
+            <div className={cn(
+              "p-6 rounded-xl",
+              theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white shadow-md"
+            )}>
+              <div className="flex items-center mb-4">
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center mr-3",
+                  theme === 'dark' ? "bg-gray-700 text-blue-400" : "bg-loan-blue/10 text-loan-blue"
+                )}>
+                  <MessageSquare size={20} />
+                </div>
+                <h3 className={cn(
+                  "text-xl font-semibold",
+                  theme === 'dark' ? "text-white" : "text-loan-gray-800"
+                )}>
+                  {isClient ? (
+                    isLoading ? <TextSkeleton width="w-3/4" /> : translatedContent.customerFirstTitle
+                  ) : pageContent.customerFirstTitle}
+                </h3>
+              </div>
+              <p className={cn(
+                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+              )}>
+                {isClient ? (
+                  isLoading ? <TextSkeleton width="w-full" /> : translatedContent.customerFirstDescription
+                ) : pageContent.customerFirstDescription}
+              </p>
+            </div>
+          </div>
         </div>
-      </section>
 
-      <section>
-        <h2 className={cn(
-          "text-2xl font-bold mb-6",
-          theme === 'dark' ? 'text-white' : 'text-loan-blue'
-        )}>API Integration</h2>
-        <div className={cn(
-          "p-6 rounded-lg",
-          theme === 'dark' ? 'bg-gray-800' : 'bg-white shadow-md'
-        )}>
-          <p className="mb-4">
-            Our platform integrates with custom APIs to provide real-time loan information and multilingual support. The chatbot can connect to:
-          </p>
-          <ul className="list-disc pl-5 mb-4 space-y-2">
-            <li>Custom APIs hosted via ngrok for real-time loan information</li>
-            <li>Language processing APIs for multilingual support</li>
-            <li>Bank-specific APIs for the latest loan product details</li>
-          </ul>
-          <p>
-            For developers interested in integrating with our platform, please note that our API expects queries in the format <code className={cn("px-2 py-1 rounded", theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100')}>{"{ \"question\": \"your query here\" }"}</code> and returns responses with an <code className={cn("px-2 py-1 rounded", theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100')}>answer</code> field.
-          </p>
+        {/* Team Section */}
+        <div className="mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h2 className={cn(
+                "text-2xl font-semibold mb-4",
+                theme === 'dark' ? "text-white" : "text-loan-gray-800"
+              )}>
+                {isClient ? (
+                  isLoading ? <TextSkeleton width="w-3/4" /> : translatedContent.ourTeamTitle
+                ) : pageContent.ourTeamTitle}
+              </h2>
+              <p className={cn(
+                "mb-6",
+                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+              )}>
+                {isClient ? (
+                  isLoading ? (
+                    <>
+                      <TextSkeleton className="mb-2" />
+                      <TextSkeleton width="w-5/6" />
+                    </>
+                  ) : translatedContent.ourTeamDescription
+                ) : pageContent.ourTeamDescription}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                {[1, 2, 3, 4].map((index) => (
+                  <div key={index} className={cn(
+                    "p-4 rounded-lg text-center",
+                    theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white shadow-sm"
+                  )}>
+                    <div className="w-16 h-16 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-3"></div>
+                    <p className={cn(
+                      "font-medium",
+                      theme === 'dark' ? "text-white" : "text-loan-gray-800"
+                    )}>Team Member {index}</p>
+                    <p className={cn(
+                      "text-sm",
+                      theme === 'dark' ? "text-gray-400" : "text-loan-gray-500"
+                    )}>Role {index}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h2 className={cn(
+                "text-2xl font-semibold mb-4",
+                theme === 'dark' ? "text-white" : "text-loan-gray-800"
+              )}>
+                {isClient ? (
+                  isLoading ? <TextSkeleton width="w-3/4" /> : translatedContent.languageSupportTitle
+                ) : pageContent.languageSupportTitle}
+              </h2>
+              <p className={cn(
+                "mb-6",
+                theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+              )}>
+                {isClient ? (
+                  isLoading ? (
+                    <>
+                      <TextSkeleton className="mb-2" />
+                      <TextSkeleton width="w-5/6" />
+                    </>
+                  ) : translatedContent.languageSupportDescription
+                ) : pageContent.languageSupportDescription}
+              </p>
+              <div className={cn(
+                "p-4 rounded-lg",
+                theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white shadow-md"
+              )}>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    'English', 'हिन्दी', 'தமிழ்', 
+                    'తెలుగు', 'ಕನ್ನಡ', 'മലയാളം',
+                    'ગુજરાતી', 'ਪੰਜਾਬੀ', 'বাংলা',
+                    'मराठी', 'ଓଡ଼ିଆ'
+                  ].map((language) => (
+                    <div key={language} className={cn(
+                      "p-2 text-center rounded",
+                      theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-50"
+                    )}>
+                      <span className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-700"}>
+                        {language}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </section>
+
+        {/* Contact Section */}
+        <div className={cn(
+          "p-6 rounded-xl",
+          theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white shadow-md"
+        )}>
+          <h2 className={cn(
+            "text-2xl font-semibold mb-6 text-center",
+            theme === 'dark' ? "text-white" : "text-loan-gray-800"
+          )}>
+            {isClient ? (
+              isLoading ? <TextSkeleton width="w-1/4" className="mx-auto" /> : translatedContent.contactUsTitle
+            ) : pageContent.contactUsTitle}
+          </h2>
+          <p className={cn(
+            "text-center mb-8 max-w-2xl mx-auto",
+            theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"
+          )}>
+            {isClient ? (
+              isLoading ? <TextSkeleton width="w-2/3" className="mx-auto" /> : translatedContent.contactUsDescription
+            ) : pageContent.contactUsDescription}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={cn(
+              "p-4 rounded-lg text-center",
+              theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-50"
+            )}>
+              <div className={cn(
+                "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3",
+                theme === 'dark' ? "bg-gray-600 text-blue-400" : "bg-loan-blue/10 text-loan-blue"
+              )}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className={cn(
+                "font-medium mb-2",
+                theme === 'dark' ? "text-white" : "text-loan-gray-800"
+              )}>
+                {isClient ? (
+                  isLoading ? "Email" : translatedContent.emailLabel
+                ) : pageContent.emailLabel}
+              </h3>
+              <p className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"}>
+                contact@loansarvam.com
+              </p>
+            </div>
+            <div className={cn(
+              "p-4 rounded-lg text-center",
+              theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-50"
+            )}>
+              <div className={cn(
+                "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3",
+                theme === 'dark' ? "bg-gray-600 text-blue-400" : "bg-loan-blue/10 text-loan-blue"
+              )}>
+                <Phone size={24} />
+              </div>
+              <h3 className={cn(
+                "font-medium mb-2",
+                theme === 'dark' ? "text-white" : "text-loan-gray-800"
+              )}>
+                {isClient ? (
+                  isLoading ? "Phone" : translatedContent.phoneLabel
+                ) : pageContent.phoneLabel}
+              </h3>
+              <p className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"}>
+                +91 1234567890
+              </p>
+            </div>
+            <div className={cn(
+              "p-4 rounded-lg text-center",
+              theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-50"
+            )}>
+              <div className={cn(
+                "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3",
+                theme === 'dark' ? "bg-gray-600 text-blue-400" : "bg-loan-blue/10 text-loan-blue"
+              )}>
+                <Building size={24} />
+              </div>
+              <h3 className={cn(
+                "font-medium mb-2",
+                theme === 'dark' ? "text-white" : "text-loan-gray-800"
+              )}>
+                {isClient ? (
+                  isLoading ? "Address" : translatedContent.addressLabel
+                ) : pageContent.addressLabel}
+              </h3>
+              <p className={theme === 'dark' ? "text-gray-300" : "text-loan-gray-600"}>
+                123 Financial District, Hyderabad, India
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
