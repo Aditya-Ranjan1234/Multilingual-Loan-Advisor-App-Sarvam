@@ -81,6 +81,9 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
           try {
             setProcessingAudio(true);
             
+            // Create an object URL for the audio blob for playback
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
             // First, convert speech to text in the user's language
             let transcribedText = "";
             try {
@@ -93,7 +96,10 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
               // Dispatch an event to add the user message to the conversation
               if (transcribedText) {
                 document.dispatchEvent(new CustomEvent('userMessage', { 
-                  detail: { text: transcribedText } 
+                  detail: { 
+                    text: transcribedText,
+                    audioUrl: audioUrl
+                  } 
                 }));
               }
             } catch (transcriptionError) {

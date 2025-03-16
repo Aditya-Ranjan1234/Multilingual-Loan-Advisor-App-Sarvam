@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Loader2, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, Volume2, VolumeX, Trash2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Message = {
   role: 'user' | 'bot';
   content: string;
+  audioUrl?: string;
 };
 
 type ResponseDisplayProps = {
@@ -14,6 +15,8 @@ type ResponseDisplayProps = {
   loading: boolean;
   shouldPlayAudio?: boolean;
 };
+
+const CONVERSATION_STORAGE_KEY = 'loan-advisor-conversation';
 
 const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: ResponseDisplayProps) => {
   const { currentLanguage, translate } = useLanguage();
@@ -24,10 +27,32 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Load conversation from localStorage on initial render
+  useEffect(() => {
+    try {
+      const savedConversation = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+      if (savedConversation) {
+        setConversation(JSON.parse(savedConversation));
+      }
+    } catch (error) {
+      console.error('Error loading conversation from localStorage:', error);
+    }
+  }, []);
+
   // Add new messages to the conversation
   useEffect(() => {
     if (response && !loading) {
-      setConversation(prev => [...prev, { role: 'bot', content: response }]);
+      const newMessage: Message = { role: 'bot', content: response };
+      setConversation(prev => {
+        const updatedConversation = [...prev, newMessage];
+        // Save to localStorage
+        try {
+          localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(updatedConversation));
+        } catch (error) {
+          console.error('Error saving conversation to localStorage:', error);
+        }
+        return updatedConversation;
+      });
     }
   }, [response, loading]);
 
@@ -50,7 +75,7 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
   }, []);
 
   // Play audio for a specific message
-  const playAudio = async (text: string, index: number) => {
+  const playAudio = async (text: string, index: number, audioUrl?: string) => {
     if (audioRef.current) {
       try {
         // Stop current audio if playing
@@ -69,8 +94,8 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
         setAudioPlaying(true);
         setCurrentPlayingIndex(index);
         
-        // Create a URL for the audio
-        const url = `/api/tts?text=${encodeURIComponent(text)}&lang=${currentLanguage.code}`;
+        // Use provided audioUrl if available, otherwise create a URL for the audio
+        const url = audioUrl || `/api/tts?text=${encodeURIComponent(text)}&lang=${currentLanguage.code}`;
         
         // Set the source and play
         audioRef.current.src = url;
@@ -87,7 +112,22 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
   useEffect(() => {
     const handleUserMessage = (event: CustomEvent) => {
       if (event.detail && event.detail.text) {
-        setConversation(prev => [...prev, { role: 'user', content: event.detail.text }]);
+        const newMessage: Message = { 
+          role: 'user', 
+          content: event.detail.text,
+          audioUrl: event.detail.audioUrl
+        };
+        
+        setConversation(prev => {
+          const updatedConversation = [...prev, newMessage];
+          // Save to localStorage
+          try {
+            localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(updatedConversation));
+          } catch (error) {
+            console.error('Error saving conversation to localStorage:', error);
+          }
+          return updatedConversation;
+        });
       }
     };
 
@@ -118,6 +158,12 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
     return withLinks.split('\n').join('<br />');
   };
 
+  // Clear conversation
+  const clearConversation = () => {
+    setConversation([]);
+    localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className={cn(
@@ -130,11 +176,27 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
         )}>
           {translate('conversation.title') || 'Conversation'}
         </h2>
-        <div className={cn(
-          "text-xs px-2 py-0.5 rounded-full",
-          theme === 'dark' ? "bg-blue-900 text-blue-300" : "bg-loan-blue/20 text-loan-blue"
-        )}>
-          {currentLanguage.name}
+        <div className="flex items-center space-x-2">
+          <div className={cn(
+            "text-xs px-2 py-0.5 rounded-full",
+            theme === 'dark' ? "bg-blue-900 text-blue-300" : "bg-loan-blue/20 text-loan-blue"
+          )}>
+            {currentLanguage.name}
+          </div>
+          {conversation.length > 0 && (
+            <button
+              onClick={clearConversation}
+              className={cn(
+                "p-1 rounded-full hover:bg-opacity-20 flex items-center",
+                theme === 'dark' 
+                  ? "hover:bg-gray-600 text-gray-300" 
+                  : "hover:bg-gray-200 text-gray-500"
+              )}
+              title={translate('conversation.clear') || "Clear conversation"}
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
       
@@ -175,7 +237,32 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
                     : "bg-loan-gray-100 text-loan-gray-800"
               )}>
                 {message.role === 'user' ? (
-                  <p>{message.content}</p>
+                  <div className="space-y-2">
+                    <p>{message.content}</p>
+                    {message.audioUrl && (
+                      <div className="flex justify-end items-center mt-1">
+                        <button 
+                          onClick={() => playAudio(message.content, index, message.audioUrl)}
+                          className={cn(
+                            "p-1 rounded-full hover:bg-opacity-20",
+                            theme === 'dark' 
+                              ? "hover:bg-blue-800" 
+                              : "hover:bg-blue-700",
+                            currentPlayingIndex === index && audioPlaying
+                              ? "text-white" 
+                              : "text-blue-200"
+                          )}
+                          title={audioPlaying && currentPlayingIndex === index ? translate('audio.stop') : translate('audio.replay')}
+                        >
+                          {audioPlaying && currentPlayingIndex === index ? (
+                            <VolumeX size={16} />
+                          ) : (
+                            <Volume2 size={16} />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <div 
@@ -194,7 +281,7 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
                             ? theme === 'dark' ? "text-blue-400" : "text-loan-blue"
                             : theme === 'dark' ? "text-gray-400" : "text-gray-500"
                         )}
-                        title={audioPlaying && currentPlayingIndex === index ? "Stop audio" : "Play audio"}
+                        title={audioPlaying && currentPlayingIndex === index ? translate('audio.stop') : translate('audio.listen')}
                       >
                         {audioPlaying && currentPlayingIndex === index ? (
                           <VolumeX size={16} />
@@ -220,6 +307,9 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
                 "h-4 w-4 animate-spin",
                 theme === 'dark' ? "text-blue-400" : "text-loan-blue"
               )} />
+              <span className={theme === 'dark' ? "text-gray-300 ml-2 text-sm" : "text-loan-gray-600 ml-2 text-sm"}>
+                {translate('processing') || 'Processing...'}
+              </span>
             </div>
           </div>
         )}
