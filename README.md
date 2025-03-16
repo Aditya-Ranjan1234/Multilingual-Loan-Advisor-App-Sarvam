@@ -6,6 +6,7 @@ A multilingual loan advisory application developed for Track 2 of the Great Beng
   <img src="images/hack.jpg" height="400">
 </p>
 
+## Backend of this Project is available at [gnanendranaidun/Langchain](https://github.com/gnanendranaidun/Langchain)
 
 ## 🌟 Features
 
