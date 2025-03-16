@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageCircle, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
-import ConversationDisplay from './ConversationDisplay';
+import ResponseDisplay from './ResponseDisplay';
 import TextInput from './TextInput';
 import VoiceRecorder from './VoiceRecorder';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,7 +28,7 @@ const FloatingChatbot = () => {
 
   const handleResponseReceived = (text: string, playAudio: boolean = false) => {
     setResponse(text);
-    setShouldPlayAudio(playAudio);
+    setShouldPlayAudio(false);
     // Ensure the chat is open when a response is received
     setIsOpen(true);
     setIsMinimized(false);
@@ -104,7 +104,7 @@ const FloatingChatbot = () => {
           {!isMinimized && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-hidden">
-                <ConversationDisplay
+                <ResponseDisplay
                   response={response}
                   loading={loading}
                   shouldPlayAudio={shouldPlayAudio}

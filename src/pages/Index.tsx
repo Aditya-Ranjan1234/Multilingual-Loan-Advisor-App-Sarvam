@@ -5,7 +5,7 @@ import LanguageSelector from '@/components/LanguageSelector';
 import ThemeToggle from '@/components/ThemeToggle';
 import TextInput from '@/components/TextInput';
 import VoiceRecorder from '@/components/VoiceRecorder';
-import ConversationDisplay from '@/components/ConversationDisplay';
+import ResponseDisplay from '@/components/ResponseDisplay';
 import ApiUrlInput from '@/components/ApiUrlInput';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -198,7 +198,7 @@ const Index = () => {
 
           {/* Right side - Chatbot */}
           <div className="space-y-6">
-            <ConversationDisplay 
+            <ResponseDisplay 
               response={response} 
               loading={loading}
               shouldPlayAudio={shouldPlayAudio}

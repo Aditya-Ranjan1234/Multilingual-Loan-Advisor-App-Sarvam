@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Message = {
@@ -20,6 +20,7 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio }: Conversatio
   const { theme } = useTheme();
   const [conversation, setConversation] = useState<Message[]>([]);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number | null>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -37,34 +38,50 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio }: Conversatio
     }
   }, [conversation, loading]);
 
-  // Handle text-to-speech
+  // Initialize audio element
   useEffect(() => {
-    if (response && shouldPlayAudio && !loading && !audioPlaying) {
-      const speak = async () => {
-        try {
-          setAudioPlaying(true);
-          
-          // Create a URL for the audio
-          const url = `/api/tts?text=${encodeURIComponent(response)}&lang=${currentLanguage.code}`;
-          
-          // Create an audio element if it doesn't exist
-          if (!audioRef.current) {
-            audioRef.current = new Audio();
-            audioRef.current.onended = () => setAudioPlaying(false);
-          }
-          
-          // Set the source and play
-          audioRef.current.src = url;
-          await audioRef.current.play();
-        } catch (error) {
-          console.error('Error playing audio:', error);
-          setAudioPlaying(false);
-        }
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.onended = () => {
+        setAudioPlaying(false);
+        setCurrentPlayingIndex(null);
       };
-      
-      speak();
     }
-  }, [response, shouldPlayAudio, loading, audioPlaying, currentLanguage.code]);
+  }, []);
+
+  // Play audio for a specific message
+  const playAudio = async (text: string, index: number) => {
+    if (audioRef.current) {
+      try {
+        // Stop current audio if playing
+        if (audioPlaying) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          setAudioPlaying(false);
+          
+          // If clicking on the same message that's already playing, just stop it
+          if (currentPlayingIndex === index) {
+            setCurrentPlayingIndex(null);
+            return;
+          }
+        }
+        
+        setAudioPlaying(true);
+        setCurrentPlayingIndex(index);
+        
+        // Create a URL for the audio
+        const url = `/api/tts?text=${encodeURIComponent(text)}&lang=${currentLanguage.code}`;
+        
+        // Set the source and play
+        audioRef.current.src = url;
+        await audioRef.current.play();
+      } catch (error) {
+        console.error('Error playing audio:', error);
+        setAudioPlaying(false);
+        setCurrentPlayingIndex(null);
+      }
+    }
+  };
 
   // Listen for userMessage events
   useEffect(() => {
@@ -160,10 +177,33 @@ const ConversationDisplay = ({ response, loading, shouldPlayAudio }: Conversatio
                 {message.role === 'user' ? (
                   <p>{message.content}</p>
                 ) : (
-                  <div 
-                    className="whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
-                  />
+                  <div className="space-y-2">
+                    <div 
+                      className="whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
+                    />
+                    <div className="flex justify-end items-center mt-1">
+                      <button 
+                        onClick={() => playAudio(message.content, index)}
+                        className={cn(
+                          "p-1 rounded-full hover:bg-opacity-20",
+                          theme === 'dark' 
+                            ? "hover:bg-gray-600" 
+                            : "hover:bg-gray-200",
+                          currentPlayingIndex === index && audioPlaying
+                            ? theme === 'dark' ? "text-blue-400" : "text-loan-blue"
+                            : theme === 'dark' ? "text-gray-400" : "text-gray-500"
+                        )}
+                        title={audioPlaying && currentPlayingIndex === index ? "Stop audio" : "Play audio"}
+                      >
+                        {audioPlaying && currentPlayingIndex === index ? (
+                          <VolumeX size={16} />
+                        ) : (
+                          <Volume2 size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

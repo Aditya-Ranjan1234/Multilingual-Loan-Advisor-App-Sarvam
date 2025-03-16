@@ -110,8 +110,8 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
               transcribedText // Pass the transcribed text
             );
             
-            // Show the response with audio playback enabled
-            onResponseReceived(result.text, result.shouldPlayAudio);
+            // Show the response with audio playback disabled
+            onResponseReceived(result.text, false);
           } catch (error) {
             console.error('Error processing audio:', error);
             

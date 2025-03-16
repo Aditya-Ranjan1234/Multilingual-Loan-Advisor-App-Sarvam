@@ -39,8 +39,8 @@ const TextInput = ({ onResponseReceived, setLoading }: TextInputProps) => {
         currentLanguage
       );
       
-      // Show the normal response
-      onResponseReceived(response.text, response.shouldPlayAudio);
+      // Show the normal response with audio disabled
+      onResponseReceived(response.text, false);
       
       setText('');
     } catch (error) {
