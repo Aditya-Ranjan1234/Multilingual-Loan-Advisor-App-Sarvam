@@ -138,8 +138,8 @@ VITE_CUSTOM_API_ENDPOINT=your_custom_api_endpoint
 5. Open a Pull Request
 
 <p align="center">
-  <img src="images/front.png" height="200">
-  <img src="images/front2.png" height="200">
+  <img src="images/front.png" height="300">
+  <img src="images/front2.png" height="300">
 </p>
 
 ## 📄 License
