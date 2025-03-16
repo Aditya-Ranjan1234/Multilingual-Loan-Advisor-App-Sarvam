@@ -9,7 +9,7 @@ import ResponseDisplay from '@/components/ResponseDisplay';
 import ApiUrlInput from '@/components/ApiUrlInput';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Building, Cpu, Database, Globe, Info, Landmark, Server, Shield } from 'lucide-react';
+import { Building, Cpu, Database, Globe, Info, Landmark, Server, Shield, Trash2 } from 'lucide-react';
 
 const Index = () => {
   const { currentLanguage, translate } = useLanguage();
@@ -17,10 +17,28 @@ const Index = () => {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [shouldPlayAudio, setShouldPlayAudio] = useState(false);
+  const [conversationKey, setConversationKey] = useState(Date.now());
+
+  // Clear conversation on page reload
+  useEffect(() => {
+    // Clear localStorage when component mounts (page loads/reloads)
+    localStorage.removeItem('loan-advisor-conversation');
+    // Generate a new key to force ResponseDisplay to re-render with empty state
+    setConversationKey(Date.now());
+  }, []);
 
   const handleResponseReceived = (text: string, playAudio: boolean = false) => {
     setResponse(text);
     setShouldPlayAudio(playAudio);
+  };
+
+  const clearConversation = () => {
+    // Clear localStorage
+    localStorage.removeItem('loan-advisor-conversation');
+    // Generate a new key to force ResponseDisplay to re-render with empty state
+    setConversationKey(Date.now());
+    // Clear the current response
+    setResponse('');
   };
 
   return (
@@ -200,9 +218,11 @@ const Index = () => {
           <div className="space-y-6">
             <div className="h-[500px] min-h-[500px]">
               <ResponseDisplay 
+                key={conversationKey}
                 response={response} 
                 loading={loading}
                 shouldPlayAudio={shouldPlayAudio}
+                onClearConversation={clearConversation}
               />
             </div>
             

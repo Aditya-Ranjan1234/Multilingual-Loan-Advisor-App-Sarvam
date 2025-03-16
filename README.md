@@ -1,69 +1,132 @@
-# Welcome to your Lovable project
+# Multilingual Loan Advisor
 
-## Project info
+A multilingual chatbot application for providing loan information in multiple Indian languages.
 
-**URL**: https://lovable.dev/projects/849ba8e7-2f93-4780-b263-5d642d02abcc
+## Features
 
-## How can I edit this code?
+- Multilingual support for 11 Indian languages
+- Text and voice input
+- Text-to-speech for responses
+- Resizable chatbot interface
+- Conversation history with clear functionality
+- Dark/light theme support
+- Comprehensive logging system for debugging
 
-There are several ways of editing your application.
+## API Architecture
 
-**Use Lovable**
+This application uses a dual-API approach:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/849ba8e7-2f93-4780-b263-5d642d02abcc) and start prompting.
+1. **Custom API** - Handles text-based interactions only
+   - Receives English text queries from the user (translated on the client-side)
+   - Processes the queries and returns English text responses (as plain text)
+   - Expects requests in the format: `{ "question": "your question here" }` (no language parameter needed)
+   - Responses are translated back to the user's language on the client-side
+   - Accessed directly via the `/ask` endpoint without a proxy to avoid CORS issues
 
-Changes made via Lovable will be committed automatically to this repo.
+2. **Sarvam AI API** - Handles all audio-related operations
+   - Speech-to-Text (STT) - Converts user's voice recordings to text
+   - Text-to-Speech (TTS) - Converts bot responses to audio
+   - Translation - Translates text between languages
+   - Accessed via `/api/stt`, `/api/tts`, and `/api/translate` endpoints through a proxy
 
-**Use your preferred IDE**
+## Logging System
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+The application includes a comprehensive logging system for debugging:
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. **Client-side Logging**:
+   - All API requests are logged with timestamps, endpoints, methods, and request bodies
+   - API responses are logged with status codes and response data
+   - Translation operations are logged with original and translated text
+   - Error handling includes detailed error logs
+   - Mock responses and fallbacks are clearly identified in logs
 
-Follow these steps:
+2. **Server-side Logging**:
+   - All proxy requests are logged with detailed information
+   - Request headers and bodies are captured
+   - Response status codes and headers are logged
+   - Error handling includes comprehensive error logs
+   - Each proxy target (TTS, STT, Translation) has its own labeled logs
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. **Log Format**:
+   - Client-side: Uses console groups with emoji indicators for different operations
+   - Server-side: Uses timestamp-prefixed logs with clear labels for each operation
+   - Binary data (like audio) is logged with type and size information
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+To view logs:
+- Client-side: Open browser developer tools and check the console
+- Server-side: Check the terminal where the server is running
 
-# Step 3: Install the necessary dependencies.
-npm i
+## CORS-Safe Implementation
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+This application avoids CORS issues by:
+
+1. Sending requests directly to the custom API without using credentials mode
+2. Translating user messages to English before sending to the custom API
+3. Translating API responses back to the user's language on the client-side
+4. Using a proxy server only for Sarvam AI API requests (audio-related operations)
+5. Implementing a fallback mechanism that tries different request modes:
+   - First attempts with standard 'cors' mode
+   - If blocked by CORS, falls back to 'no-cors' mode
+   - If both fail, uses intelligent mock responses based on the query
+   - All mock responses are translated to the user's language
+
+## Installation
+
+```bash
+# Install dependencies
+npm install
 ```
 
-**Edit a file directly in GitHub**
+## Development
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+# Build the frontend
+npm run build
 
-**Use GitHub Codespaces**
+# Start the proxy server and serve the application
+npm start
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+For development with hot-reloading:
 
-## What technologies are used for this project?
+```bash
+# Start the frontend development server
+npm run dev
 
-This project is built with .
+# In a separate terminal, start the proxy server
+npm run dev:server
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Environment Variables
 
-## How can I deploy this project?
+You can configure the API endpoint by setting the custom API URL in the ApiUrlContext:
 
-Simply open [Lovable](https://lovable.dev/projects/849ba8e7-2f93-4780-b263-5d642d02abcc) and click on Share -> Publish.
+```typescript
+// In src/contexts/ApiUrlContext.tsx
+const [customApiUrl, setCustomApiUrl] = useState<string>('https://your-custom-api.com');
+```
 
-## I want to use a custom domain - is that possible?
+## Deployment
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+The application can be deployed to any static hosting service. Make sure to set up the proxy server to handle Sarvam API requests.
+
+## Troubleshooting
+
+If you encounter CORS issues:
+
+1. Check that the custom API URL is correctly set in ApiUrlContext and points to the base URL without any path
+2. Verify that the API endpoint is correctly set to `/ask` in the sendMessage function
+3. Make sure the request body only includes the `question` field (the API expects `{ "question": "your question here" }` without any language parameter)
+4. Make sure the fetchWithCORS function is properly handling CORS errors with fallback mechanisms
+5. Check the browser console for detailed error messages about CORS issues
+6. If using a custom API server, ensure it has proper CORS headers configured:
+   ```
+   Access-Control-Allow-Origin: *
+   Access-Control-Allow-Methods: GET, POST, OPTIONS
+   Access-Control-Allow-Headers: Content-Type, Accept
+   ```
+7. Remember that even if CORS issues persist, the application will still function using intelligent mock responses
+
+## License
+
+MIT

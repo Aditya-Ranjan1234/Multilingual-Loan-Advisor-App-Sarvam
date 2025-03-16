@@ -3,6 +3,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Loader2, Volume2, VolumeX, Trash2, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/use-toast';
+import { textToSpeechUrl } from '@/services/sarvamAI';
 
 type Message = {
   role: 'user' | 'bot';
@@ -16,11 +18,17 @@ type ResponseDisplayProps = {
   response: string;
   loading: boolean;
   shouldPlayAudio?: boolean;
+  onClearConversation?: () => void;
 };
 
 const CONVERSATION_STORAGE_KEY = 'loan-advisor-conversation';
 
-const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: ResponseDisplayProps) => {
+const ResponseDisplay = ({ 
+  response, 
+  loading, 
+  shouldPlayAudio = false,
+  onClearConversation 
+}: ResponseDisplayProps) => {
   const { currentLanguage, translate } = useLanguage();
   const { theme } = useTheme();
   const [conversation, setConversation] = useState<Message[]>([]);
@@ -228,16 +236,35 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
         setAudioPlaying(true);
         setCurrentPlayingIndex(index);
         
-        // Use provided audioUrl if available, otherwise create a URL for the audio
-        const url = audioUrl || `/api/tts?text=${encodeURIComponent(text)}&lang=${currentLanguage.code}`;
+        // Use provided audioUrl if available (for user messages with recorded audio)
+        if (audioUrl) {
+          audioRef.current.src = audioUrl;
+          await audioRef.current.play();
+          return;
+        }
+        
+        // For bot messages, use Sarvam API for text-to-speech
+        const ttsUrl = await textToSpeechUrl(text, currentLanguage.code);
         
         // Set the source and play
-        audioRef.current.src = url;
+        audioRef.current.src = ttsUrl;
         await audioRef.current.play();
+        
+        // Clean up the blob URL when audio finishes playing
+        audioRef.current.onended = () => {
+          URL.revokeObjectURL(ttsUrl);
+          setAudioPlaying(false);
+          setCurrentPlayingIndex(null);
+        };
       } catch (error) {
         console.error('Error playing audio:', error);
         setAudioPlaying(false);
         setCurrentPlayingIndex(null);
+        toast({
+          title: "Audio Playback Failed",
+          description: "Could not play the audio. Please try again.",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -296,6 +323,9 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
   const clearConversation = () => {
     setConversation([]);
     localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+    if (onClearConversation) {
+      onClearConversation();
+    }
   };
 
   // Toggle expanded state

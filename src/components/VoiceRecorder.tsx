@@ -1,56 +1,135 @@
-import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useApiUrl } from '@/contexts/ApiUrlContext';
-import { submitAudioQuery } from '@/services/api';
-import { speechToText } from '@/services/sarvamAI';
-import { toast } from '@/components/ui/use-toast';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useApiUrl } from '@/contexts/ApiUrlContext';
+import { Mic, Square, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sendMessage } from '@/services/api';
+import { speechToText } from '@/services/sarvamAI';
 
 type VoiceRecorderProps = {
-  onResponseReceived: (response: string, shouldPlayAudio: boolean) => void;
+  onResponseReceived: (text: string, playAudio: boolean) => void;
   setLoading: (loading: boolean) => void;
 };
 
 const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) => {
-  const { currentLanguage, translate, translateDynamic } = useLanguage();
-  const { customApiUrl } = useApiUrl();
+  const { currentLanguage } = useLanguage();
   const { theme } = useTheme();
+  const { apiUrl } = useApiUrl();
   const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [processingAudio, setProcessingAudio] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Request microphone permission
+  // Clean up on unmount
   useEffect(() => {
-    // Clean up when component unmounts
     return () => {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
       }
     };
-  }, [mediaRecorder]);
+  }, [audioUrl]);
 
-  // Handle recording timer
-  useEffect(() => {
-    let interval: number | undefined;
-    
-    if (isRecording) {
-      interval = window.setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-    } else {
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      chunksRef.current = [];
+      
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        chunksRef.current.push(e.data);
+      };
+      
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        setAudioBlob(blob);
+        setAudioUrl(url);
+        
+        // Stop all tracks in the stream
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
       setRecordingTime(0);
+      
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Could not access microphone. Please check your browser permissions.');
     }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!audioBlob) return;
     
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRecording]);
+    try {
+      setIsProcessing(true);
+      setLoading(true);
+      
+      // First, use Sarvam API to convert speech to text
+      const transcribedText = await speechToText({
+        audio: audioBlob,
+        languageCode: currentLanguage.code
+      });
+      
+      // Dispatch an event to add the user message to the conversation
+      document.dispatchEvent(new CustomEvent('userMessage', { 
+        detail: { 
+          text: transcribedText || "🎤 Voice message", 
+          audioUrl: audioUrl 
+        } 
+      }));
+      
+      if (transcribedText) {
+        // Now send the transcribed text to the custom API
+        const response = await sendMessage(transcribedText, apiUrl, currentLanguage.code);
+        
+        // Show response
+        onResponseReceived(response.response, false);
+      } else {
+        // Handle case where speech-to-text failed
+        onResponseReceived('Sorry, I could not understand the audio. Please try again or type your message.', false);
+      }
+      
+      // Reset audio state
+      setAudioBlob(null);
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      onResponseReceived('Sorry, there was an error processing your audio. Please try again later.', false);
+    } finally {
+      setIsProcessing(false);
+      setLoading(false);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -58,172 +137,100 @@ const VoiceRecorder = ({ onResponseReceived, setLoading }: VoiceRecorderProps) =
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const startRecording = async () => {
-    setAudioChunks([]);
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
-      });
-      
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          setAudioChunks((prev) => [...prev, event.data]);
-        }
-      };
-      
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        
-        if (audioBlob.size > 0) {
-          try {
-            setProcessingAudio(true);
-            
-            // Create an object URL for the audio blob for playback
-            const audioUrl = URL.createObjectURL(audioBlob);
-            
-            // First, convert speech to text in the user's language
-            let transcribedText = "";
-            try {
-              transcribedText = await speechToText({
-                audio: audioBlob,
-                languageCode: currentLanguage.code
-              });
-              console.log('Transcribed text:', transcribedText);
-              
-              // Dispatch an event to add the user message to the conversation
-              if (transcribedText) {
-                document.dispatchEvent(new CustomEvent('userMessage', { 
-                  detail: { 
-                    text: transcribedText,
-                    audioUrl: audioUrl
-                  } 
-                }));
-              }
-            } catch (transcriptionError) {
-              console.error('Error transcribing audio:', transcriptionError);
-              // If transcription fails, we'll still have a default response from speechToText
-            }
-            
-            // Then, submit the transcribed text to get a response
-            setLoading(true);
-            const result = await submitAudioQuery(
-              audioBlob,
-              customApiUrl,
-              currentLanguage,
-              transcribedText // Pass the transcribed text
-            );
-            
-            // Show the response with audio playback disabled
-            onResponseReceived(result.text, false);
-          } catch (error) {
-            console.error('Error processing audio:', error);
-            
-            // Instead of showing an error toast, provide a helpful response
-            const errorMessage = await translateDynamic(
-              "I couldn't process your audio properly, but I'm here to help with your loan-related questions. Please try again or type your question."
-            );
-            
-            onResponseReceived(errorMessage, false);
-            
-            toast({
-              title: translate('error.title') || "Error",
-              description: translate('error.audio') || "Could not process your audio. Please try again.",
-              variant: "destructive",
-            });
-          } finally {
-            setProcessingAudio(false);
-            setLoading(false);
-          }
-        }
-        
-        // Stop all audio tracks
-        stream.getTracks().forEach(track => track.stop());
-      };
-      
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-      setPermissionDenied(false);
-      
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      setPermissionDenied(true);
-      toast({
-        title: translate('error.title') || "Error",
-        description: translate('error.microphone') || "Could not access your microphone. Please check permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const toggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
   return (
-    <div className={cn(
-      "flex flex-col items-center p-4",
-      theme === 'dark' ? "text-gray-200" : "text-loan-gray-800"
-    )}>
-      {permissionDenied ? (
-        <div className={cn(
-          "mb-4 flex items-center",
-          theme === 'dark' ? "text-red-400" : "text-red-500"
-        )}>
-          <MicOff size={18} className="mr-2" />
-          {translate('voice.denied') || 'Microphone access denied'}
-        </div>
-      ) : processingAudio ? (
-        <div className={cn(
-          "mb-4 flex items-center",
-          theme === 'dark' ? "text-blue-400" : "text-loan-blue"
-        )}>
-          <Loader2 size={18} className="mr-2 animate-spin" />
-          {translate('voice.processing') || 'Processing audio...'}
-        </div>
-      ) : isRecording ? (
-        <div className={cn(
-          "mb-4 animate-pulse",
-          theme === 'dark' ? "text-blue-400" : "text-loan-blue"
-        )}>
-          {translate('voice.recording').replace('{time}', formatTime(recordingTime)) || `Recording... ${formatTime(recordingTime)}`}
-        </div>
-      ) : (
-        <div className={cn(
-          "mb-4",
-          theme === 'dark' ? "text-gray-400" : "text-loan-gray-500"
-        )}>
-          {translate('voice.prompt') || 'Click to record'}
+    <div className="flex flex-col items-center">
+      {!isRecording && !audioBlob && (
+        <button
+          onClick={startRecording}
+          className={cn(
+            "w-16 h-16 rounded-full flex items-center justify-center transition-colors",
+            theme === 'dark'
+              ? "bg-blue-600 hover:bg-blue-700 text-white"
+              : "bg-loan-blue hover:bg-loan-blue/90 text-white"
+          )}
+        >
+          <Mic size={24} />
+        </button>
+      )}
+      
+      {isRecording && (
+        <div className="flex flex-col items-center">
+          <div className="text-center mb-2">
+            <div className={cn(
+              "text-lg font-medium",
+              theme === 'dark' ? "text-white" : "text-loan-gray-800"
+            )}>
+              {formatTime(recordingTime)}
+            </div>
+            <div className={cn(
+              "text-sm",
+              theme === 'dark' ? "text-gray-400" : "text-loan-gray-500"
+            )}>
+              Recording...
+            </div>
+          </div>
+          
+          <button
+            onClick={stopRecording}
+            className={cn(
+              "w-16 h-16 rounded-full flex items-center justify-center transition-colors",
+              theme === 'dark'
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-red-500 hover:bg-red-600 text-white"
+            )}
+          >
+            <Square size={24} />
+          </button>
         </div>
       )}
       
-      <Button
-        onClick={toggleRecording}
-        disabled={permissionDenied || processingAudio}
-        className={cn(
-          "rounded-full w-16 h-16 p-0",
-          isRecording 
-            ? theme === 'dark' ? "bg-red-600 hover:bg-red-700" : "bg-red-500 hover:bg-red-600"
-            : theme === 'dark' ? "bg-blue-600 hover:bg-blue-700" : "bg-loan-blue hover:bg-loan-blue/90"
-        )}
-        aria-label={isRecording ? (translate('voice.stop') || 'Stop recording') : (translate('voice.start') || 'Start recording')}
-      >
-        <Mic size={24} className="text-white" />
-      </Button>
+      {!isRecording && audioBlob && (
+        <div className="flex flex-col items-center">
+          <div className="text-center mb-2">
+            <div className={cn(
+              "text-sm",
+              theme === 'dark' ? "text-gray-400" : "text-loan-gray-500"
+            )}>
+              {isProcessing ? 'Processing audio...' : 'Recording complete'}
+            </div>
+          </div>
+          
+          <div className="flex space-x-4">
+            {isProcessing ? (
+              <div className="flex items-center">
+                <Loader2 className="animate-spin mr-2" size={20} />
+                <span>Converting speech to text...</span>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={startRecording}
+                  className={cn(
+                    "px-4 py-2 rounded-lg transition-colors",
+                    theme === 'dark'
+                      ? "bg-gray-700 hover:bg-gray-600 text-white"
+                      : "bg-loan-gray-100 hover:bg-loan-gray-200 text-loan-gray-800"
+                  )}
+                >
+                  Record Again
+                </button>
+                
+                <button
+                  onClick={handleSubmit}
+                  className={cn(
+                    "px-4 py-2 rounded-lg transition-colors",
+                    theme === 'dark'
+                      ? "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-loan-blue hover:bg-loan-blue/90 text-white"
+                  )}
+                >
+                  Send
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

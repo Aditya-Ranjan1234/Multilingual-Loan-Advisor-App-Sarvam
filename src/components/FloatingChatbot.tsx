@@ -16,11 +16,11 @@ const FloatingChatbot = () => {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [shouldPlayAudio, setShouldPlayAudio] = useState(false);
+  const [conversationKey, setConversationKey] = useState(Date.now());
   const [width, setWidth] = useState(380);
-  const [height, setHeight] = useState(600);
   const resizeRef = useRef<HTMLDivElement>(null);
-  const startPosRef = useRef<{x: number, y: number} | null>(null);
-  const startSizeRef = useRef<{width: number, height: number}>({ width, height });
+  const startXRef = useRef<number | null>(null);
+  const startWidthRef = useRef<number>(width);
 
   // Open the chatbot on first visit after a delay
   useEffect(() => {
@@ -31,47 +31,34 @@ const FloatingChatbot = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleResponseReceived = (text: string, playAudio: boolean = false) => {
-    setResponse(text);
-    setShouldPlayAudio(false);
-    // Ensure the chat is open when a response is received
-    setIsOpen(true);
-    setIsMinimized(false);
-  };
-
-  const toggleChat = () => {
-    setIsOpen(!isOpen);
-    if (!isOpen) {
-      setIsMinimized(false);
-    }
-  };
-
-  const toggleMinimize = () => {
-    setIsMinimized(!isMinimized);
-  };
+  // Clear conversation on page reload
+  useEffect(() => {
+    // Clear localStorage when component mounts (page loads/reloads)
+    localStorage.removeItem('loan-advisor-conversation');
+    // Generate a new key to force ResponseDisplay to re-render with empty state
+    setConversationKey(Date.now());
+  }, []);
 
   // Setup resize handlers
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      startPosRef.current = { x: e.clientX, y: e.clientY };
-      startSizeRef.current = { width, height };
+      e.preventDefault();
+      startXRef.current = e.clientX;
+      startWidthRef.current = width;
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (startPosRef.current !== null) {
-        const deltaX = e.clientX - startPosRef.current.x;
-        const deltaY = e.clientY - startPosRef.current.y;
-        const newWidth = Math.max(300, startSizeRef.current.width + deltaX);
-        const newHeight = Math.max(400, startSizeRef.current.height + deltaY);
+      if (startXRef.current !== null) {
+        const deltaX = startXRef.current - e.clientX;
+        const newWidth = Math.max(300, Math.min(800, startWidthRef.current + deltaX));
         setWidth(newWidth);
-        setHeight(newHeight);
       }
     };
 
     const handleMouseUp = () => {
-      startPosRef.current = null;
+      startXRef.current = null;
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -88,7 +75,35 @@ const FloatingChatbot = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [width, height]);
+  }, [width]);
+
+  const handleResponseReceived = (text: string, playAudio: boolean = false) => {
+    setResponse(text);
+    setShouldPlayAudio(false);
+    // Ensure the chat is open when a response is received
+    setIsOpen(true);
+    setIsMinimized(false);
+  };
+
+  const clearConversation = () => {
+    // Clear localStorage
+    localStorage.removeItem('loan-advisor-conversation');
+    // Generate a new key to force ResponseDisplay to re-render with empty state
+    setConversationKey(Date.now());
+    // Clear the current response
+    setResponse('');
+  };
+
+  const toggleChat = () => {
+    setIsOpen(!isOpen);
+    if (!isOpen) {
+      setIsMinimized(false);
+    }
+  };
+
+  const toggleMinimize = () => {
+    setIsMinimized(!isMinimized);
+  };
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
@@ -107,125 +122,123 @@ const FloatingChatbot = () => {
 
       {/* Chat interface */}
       {isOpen && (
-        <div
-          className={cn(
-            "flex flex-col rounded-xl shadow-xl transition-all duration-300 transform",
-            isMinimized ? "w-72 h-16" : "",
-            theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"
-          )}
-          style={{ 
-            width: isMinimized ? '18rem' : `${width}px`, 
-            height: isMinimized ? '4rem' : `${height}px` 
-          }}
-        >
-          {/* Chat header */}
+        <div className="flex items-start">
+          {/* Resize handle */}
+          <div
+            ref={resizeRef}
+            className={cn(
+              "w-1 cursor-ew-resize hover:bg-opacity-100 transition-colors",
+              theme === 'dark' ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-200 hover:bg-gray-300"
+            )}
+            style={{ height: isMinimized ? '4rem' : '600px' }}
+          />
+          
           <div
             className={cn(
-              "flex items-center justify-between p-4 border-b cursor-pointer",
-              theme === 'dark' ? "bg-gray-700 border-gray-600" : "bg-loan-blue text-white"
+              "flex flex-col rounded-xl shadow-xl transition-all duration-300 transform",
+              isMinimized ? "w-72" : "",
+              theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"
             )}
-            onClick={isMinimized ? toggleMinimize : undefined}
+            style={{ 
+              width: isMinimized ? '18rem' : `${width}px`,
+              height: isMinimized ? '4rem' : 'auto'
+            }}
           >
-            <div className="flex items-center">
-              <MessageCircle size={20} className={theme === 'dark' ? "text-blue-400 mr-2" : "text-white mr-2"} />
-              <h3 className={theme === 'dark' ? "font-medium text-white" : "font-medium"}>
-                {translate('app.name') || "Loan Advisor"}
-              </h3>
-            </div>
-            <div className="flex items-center space-x-2">
-              {!isMinimized && (
-                <button onClick={toggleMinimize} className="text-gray-100 hover:text-white" title={translate('ui.minimize')}>
-                  <Minimize2 size={18} />
-                </button>
+            {/* Chat header */}
+            <div
+              className={cn(
+                "flex items-center justify-between p-4 border-b cursor-pointer",
+                theme === 'dark' ? "bg-gray-700 border-gray-600" : "bg-loan-blue text-white"
               )}
-              {isMinimized && (
-                <button onClick={toggleMinimize} className="text-gray-100 hover:text-white" title={translate('ui.maximize')}>
-                  <Maximize2 size={18} />
-                </button>
-              )}
-              <button onClick={toggleChat} className="text-gray-100 hover:text-white" title={translate('ui.close')}>
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Chat content */}
-          {!isMinimized && (
-            <>
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-hidden">
-                  <ResponseDisplay
-                    response={response}
-                    loading={loading}
-                    shouldPlayAudio={shouldPlayAudio}
-                  />
-                </div>
-
-                <div className="p-3 border-t">
-                  <Tabs defaultValue="text" className={cn(
-                    "w-full",
-                    theme === 'dark' ? "border-gray-700" : "border-gray-200"
-                  )}>
-                    <TabsList className={cn(
-                      "w-full grid grid-cols-2 h-10 mb-2",
-                      theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-100"
-                    )}>
-                      <TabsTrigger
-                        value="text"
-                        className={cn(
-                          "data-[state=active]:shadow-none rounded-none h-full",
-                          theme === 'dark'
-                            ? "data-[state=active]:bg-gray-600 data-[state=active]:text-white"
-                            : "data-[state=active]:bg-white"
-                        )}
-                      >
-                        {translate('input.text') || "Text"}
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="voice"
-                        className={cn(
-                          "data-[state=active]:shadow-none rounded-none h-full",
-                          theme === 'dark'
-                            ? "data-[state=active]:bg-gray-600 data-[state=active]:text-white"
-                            : "data-[state=active]:bg-white"
-                        )}
-                      >
-                        {translate('input.voice') || "Voice"}
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="text" className="mt-0">
-                      <TextInput
-                        onResponseReceived={handleResponseReceived}
-                        setLoading={setLoading}
-                      />
-                    </TabsContent>
-                    <TabsContent value="voice" className="mt-0 flex justify-center">
-                      <VoiceRecorder
-                        onResponseReceived={handleResponseReceived}
-                        setLoading={setLoading}
-                      />
-                    </TabsContent>
-                  </Tabs>
-                </div>
+              onClick={isMinimized ? toggleMinimize : undefined}
+            >
+              <div className="flex items-center">
+                <MessageCircle size={20} className={theme === 'dark' ? "text-blue-400 mr-2" : "text-white mr-2"} />
+                <h3 className={theme === 'dark' ? "font-medium text-white" : "font-medium"}>
+                  {translate('app.name') || "Loan Advisor"}
+                </h3>
               </div>
-              
-              {/* Resize handle */}
-              <div 
-                ref={resizeRef}
-                className={cn(
-                  "w-6 h-6 absolute bottom-0 right-0 cursor-nwse-resize",
-                  theme === 'dark' ? "text-gray-600" : "text-gray-400"
+              <div className="flex items-center space-x-2">
+                {!isMinimized && (
+                  <button onClick={toggleMinimize} className="text-gray-100 hover:text-white" title={translate('ui.minimize')}>
+                    <Minimize2 size={18} />
+                  </button>
                 )}
-                style={{
-                  backgroundImage: `linear-gradient(135deg, transparent 50%, ${theme === 'dark' ? '#4B5563' : '#D1D5DB'} 50%)`,
-                  backgroundSize: '10px 10px',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right bottom'
-                }}
-                title={translate('ui.resize')}
-              />
-            </>
-          )}
+                {isMinimized && (
+                  <button onClick={toggleMinimize} className="text-gray-100 hover:text-white" title={translate('ui.maximize')}>
+                    <Maximize2 size={18} />
+                  </button>
+                )}
+                <button onClick={toggleChat} className="text-gray-100 hover:text-white" title={translate('ui.close')}>
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Chat content */}
+            {!isMinimized && (
+              <>
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <div className="flex-1 overflow-hidden">
+                    <ResponseDisplay
+                      key={conversationKey}
+                      response={response}
+                      loading={loading}
+                      shouldPlayAudio={shouldPlayAudio}
+                      onClearConversation={clearConversation}
+                    />
+                  </div>
+
+                  <div className="p-3 border-t">
+                    <Tabs defaultValue="text" className={cn(
+                      "w-full",
+                      theme === 'dark' ? "border-gray-700" : "border-gray-200"
+                    )}>
+                      <TabsList className={cn(
+                        "w-full grid grid-cols-2 h-10 mb-2",
+                        theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-100"
+                      )}>
+                        <TabsTrigger
+                          value="text"
+                          className={cn(
+                            "data-[state=active]:shadow-none rounded-none h-full",
+                            theme === 'dark'
+                              ? "data-[state=active]:bg-gray-600 data-[state=active]:text-white"
+                              : "data-[state=active]:bg-white"
+                          )}
+                        >
+                          {translate('input.text') || "Text"}
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="voice"
+                          className={cn(
+                            "data-[state=active]:shadow-none rounded-none h-full",
+                            theme === 'dark'
+                              ? "data-[state=active]:bg-gray-600 data-[state=active]:text-white"
+                              : "data-[state=active]:bg-white"
+                          )}
+                        >
+                          {translate('input.voice') || "Voice"}
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="text" className="mt-0">
+                        <TextInput
+                          onResponseReceived={handleResponseReceived}
+                          setLoading={setLoading}
+                        />
+                      </TabsContent>
+                      <TabsContent value="voice" className="mt-0 flex justify-center">
+                        <VoiceRecorder
+                          onResponseReceived={handleResponseReceived}
+                          setLoading={setLoading}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

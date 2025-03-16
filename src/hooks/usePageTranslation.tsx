@@ -122,7 +122,7 @@ export function usePageTranslation<T>(
     } finally {
       setIsLoading(false);
     }
-  }, [content, contentKey, currentLanguage, sourceLanguage, translateDynamic]);
+  }, [content, currentLanguage.code, sourceLanguage, translateDynamic]);
 
   useEffect(() => {
     translate();

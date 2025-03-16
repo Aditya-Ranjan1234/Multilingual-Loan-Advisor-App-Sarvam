@@ -1,99 +1,97 @@
-import React, { useState, useRef } from 'react';
-import { Send } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useApiUrl } from '@/contexts/ApiUrlContext';
-import { submitTextQuery } from '@/services/api';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useApiUrl } from '@/contexts/ApiUrlContext';
+import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sendMessage } from '@/services/api';
 
 type TextInputProps = {
-  onResponseReceived: (response: string, shouldPlayAudio: boolean) => void;
+  onResponseReceived: (text: string, playAudio: boolean) => void;
   setLoading: (loading: boolean) => void;
 };
 
 const TextInput = ({ onResponseReceived, setLoading }: TextInputProps) => {
-  const { currentLanguage, translate } = useLanguage();
-  const { customApiUrl } = useApiUrl();
+  const { currentLanguage } = useLanguage();
   const { theme } = useTheme();
-  const [text, setText] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { apiUrl } = useApiUrl();
+  const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = async () => {
-    if (!text.trim()) return;
+  // Focus input on mount
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!input.trim()) return;
+    
+    // Dispatch event for user message
+    const userMessageEvent = new CustomEvent('userMessage', {
+      detail: { text: input }
+    });
+    document.dispatchEvent(userMessageEvent);
+    
+    // Clear input
+    setInput('');
+    
+    // Set loading state
+    setLoading(true);
     
     try {
-      // Dispatch an event to add the user message to the conversation
-      const userMessage = text.trim();
-      document.dispatchEvent(new CustomEvent('userMessage', { 
-        detail: { text: userMessage } 
-      }));
+      // Send message to API
+      const response = await sendMessage(input, apiUrl, currentLanguage.code);
       
-      setLoading(true);
-      
-      // Submit the query to get a response
-      const response = await submitTextQuery(
-        userMessage,
-        customApiUrl,
-        currentLanguage
-      );
-      
-      // Show the normal response with audio disabled
-      onResponseReceived(response.text, false);
-      
-      setText('');
+      // Show response
+      onResponseReceived(response.response, false);
     } catch (error) {
-      console.error('Error submitting text:', error);
+      console.error('Error sending message:', error);
+      onResponseReceived('Sorry, there was an error processing your request. Please try again later.', false);
     } finally {
       setLoading(false);
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      handleSubmit(e);
     }
   };
 
   return (
-    <div className={cn(
-      "relative w-full rounded-xl overflow-hidden border shadow-sm transition-all",
-      theme === 'dark' 
-        ? "bg-gray-700 border-gray-600" 
-        : "bg-white border-gray-200"
-    )}>
-      <Textarea
-        ref={textareaRef}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
+    <form onSubmit={handleSubmit} className="flex items-end">
+      <textarea
+        ref={inputRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={translate('input.placeholder') || `Ask about loans in ${currentLanguage.name}...`}
+        placeholder="Type your message..."
         className={cn(
-          "resize-none min-h-[100px] p-4 focus-visible:ring-0 focus-visible:ring-offset-0",
+          "flex-1 p-3 rounded-l-lg resize-none min-h-[80px] max-h-[200px] focus:outline-none",
           theme === 'dark' 
-            ? "bg-gray-700 border-gray-600 text-white placeholder:text-gray-400" 
-            : "bg-white border-none text-loan-gray-800"
+            ? "bg-gray-700 text-white border-gray-600 focus:border-blue-500" 
+            : "bg-white text-gray-900 border-gray-300 focus:border-loan-blue"
         )}
+        rows={3}
       />
-      <Button
-        onClick={handleSubmit}
-        disabled={!text.trim()}
+      <button
+        type="submit"
         className={cn(
-          "absolute bottom-3 right-3 rounded-full w-10 h-10 p-0",
-          theme === 'dark' 
-            ? "bg-blue-600 hover:bg-blue-700" 
-            : "bg-loan-blue hover:bg-loan-blue/90"
+          "p-3 h-[80px] rounded-r-lg",
+          theme === 'dark'
+            ? "bg-blue-600 text-white hover:bg-blue-700"
+            : "bg-loan-blue text-white hover:bg-loan-blue/90"
         )}
-        aria-label={translate('input.send') || "Send message"}
+        disabled={!input.trim()}
       >
-        <Send size={18} className="text-white" />
-      </Button>
-    </div>
+        <Send size={20} />
+      </button>
+    </form>
   );
 };
 
