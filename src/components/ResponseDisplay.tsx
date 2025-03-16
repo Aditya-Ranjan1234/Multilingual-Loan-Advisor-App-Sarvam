@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Loader2, Volume2, VolumeX, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, Volume2, VolumeX, Trash2, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Message = {
   role: 'user' | 'bot';
   content: string;
   audioUrl?: string;
+  isStreaming?: boolean;
+  fullContent?: string;
 };
 
 type ResponseDisplayProps = {
@@ -26,6 +28,11 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
   const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number | null>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [height, setHeight] = useState(400); // Default height
+  const resizeRef = useRef<HTMLDivElement>(null);
+  const startYRef = useRef<number | null>(null);
+  const startHeightRef = useRef<number>(height);
 
   // Load conversation from localStorage on initial render
   useEffect(() => {
@@ -39,22 +46,112 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
     }
   }, []);
 
-  // Add new messages to the conversation
+  // Add new messages to the conversation with streaming effect
   useEffect(() => {
     if (response && !loading) {
-      const newMessage: Message = { role: 'bot', content: response };
-      setConversation(prev => {
-        const updatedConversation = [...prev, newMessage];
-        // Save to localStorage
-        try {
-          localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(updatedConversation));
-        } catch (error) {
-          console.error('Error saving conversation to localStorage:', error);
-        }
-        return updatedConversation;
-      });
+      // Check if we already have a bot message that's streaming
+      const lastMessage = conversation[conversation.length - 1];
+      
+      if (lastMessage && lastMessage.role === 'bot' && lastMessage.isStreaming) {
+        // Update the existing streaming message
+        setConversation(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: response,
+            isStreaming: false,
+            fullContent: response
+          };
+          
+          // Save to localStorage
+          try {
+            localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving conversation to localStorage:', error);
+          }
+          
+          return updated;
+        });
+      } else {
+        // Start a new streaming message
+        const newMessage: Message = { 
+          role: 'bot', 
+          content: '', 
+          isStreaming: true,
+          fullContent: response
+        };
+        
+        setConversation(prev => {
+          const updatedConversation = [...prev, newMessage];
+          // Save to localStorage
+          try {
+            localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(updatedConversation));
+          } catch (error) {
+            console.error('Error saving conversation to localStorage:', error);
+          }
+          return updatedConversation;
+        });
+        
+        // Start streaming the content
+        streamText(response);
+      }
     }
   }, [response, loading]);
+
+  // Function to stream text character by character
+  const streamText = (text: string) => {
+    let index = 0;
+    const streamInterval = setInterval(() => {
+      if (index <= text.length) {
+        setConversation(prev => {
+          const updated = [...prev];
+          const lastIndex = updated.length - 1;
+          
+          if (lastIndex >= 0 && updated[lastIndex].isStreaming) {
+            updated[lastIndex] = {
+              ...updated[lastIndex],
+              content: text.substring(0, index)
+            };
+            
+            // Save to localStorage
+            try {
+              localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving conversation to localStorage:', error);
+            }
+          }
+          
+          return updated;
+        });
+        
+        index++;
+      } else {
+        // Streaming complete
+        setConversation(prev => {
+          const updated = [...prev];
+          const lastIndex = updated.length - 1;
+          
+          if (lastIndex >= 0 && updated[lastIndex].isStreaming) {
+            updated[lastIndex] = {
+              ...updated[lastIndex],
+              isStreaming: false
+            };
+            
+            // Save to localStorage
+            try {
+              localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving conversation to localStorage:', error);
+            }
+          }
+          
+          return updated;
+        });
+        
+        clearInterval(streamInterval);
+      }
+    }, 15); // Adjust speed as needed
+  };
 
   // Scroll to the bottom when conversation updates
   useEffect(() => {
@@ -73,6 +170,43 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
       };
     }
   }, []);
+
+  // Setup resize handlers
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      startYRef.current = e.clientY;
+      startHeightRef.current = height;
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (startYRef.current !== null) {
+        const deltaY = e.clientY - startYRef.current;
+        const newHeight = Math.max(200, startHeightRef.current + deltaY);
+        setHeight(newHeight);
+      }
+    };
+
+    const handleMouseUp = () => {
+      startYRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    const resizeHandle = resizeRef.current;
+    if (resizeHandle) {
+      resizeHandle.addEventListener('mousedown', handleMouseDown);
+    }
+
+    return () => {
+      if (resizeHandle) {
+        resizeHandle.removeEventListener('mousedown', handleMouseDown);
+      }
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [height]);
 
   // Play audio for a specific message
   const playAudio = async (text: string, index: number, audioUrl?: string) => {
@@ -164,8 +298,20 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
     localStorage.removeItem(CONVERSATION_STORAGE_KEY);
   };
 
+  // Toggle expanded state
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
+
   return (
-    <div className="h-full flex flex-col">
+    <div 
+      className={cn(
+        "flex flex-col border rounded-lg overflow-hidden transition-all duration-300",
+        theme === 'dark' ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200",
+        isExpanded ? "fixed inset-4 z-50" : "relative"
+      )}
+      style={{ height: isExpanded ? 'auto' : `${height}px` }}
+    >
       <div className={cn(
         "p-3 border-b flex items-center justify-between",
         theme === 'dark' ? "bg-gray-700 border-gray-600" : "bg-loan-gray-50 border-gray-200"
@@ -197,6 +343,18 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
               <Trash2 size={16} />
             </button>
           )}
+          <button
+            onClick={toggleExpanded}
+            className={cn(
+              "p-1 rounded-full hover:bg-opacity-20 flex items-center",
+              theme === 'dark' 
+                ? "hover:bg-gray-600 text-gray-300" 
+                : "hover:bg-gray-200 text-gray-500"
+            )}
+            title={isExpanded ? translate('ui.minimize') : translate('ui.maximize')}
+          >
+            {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
         </div>
       </div>
       
@@ -269,6 +427,9 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
                       className="whitespace-pre-wrap"
                       dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
                     />
+                    {message.isStreaming && (
+                      <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" title={translate('ui.typing')}></span>
+                    )}
                     <div className="flex justify-end items-center mt-1">
                       <button 
                         onClick={() => playAudio(message.content, index)}
@@ -316,6 +477,17 @@ const ResponseDisplay = ({ response, loading, shouldPlayAudio = false }: Respons
         
         <div ref={conversationEndRef} />
       </div>
+      
+      {!isExpanded && (
+        <div 
+          ref={resizeRef}
+          className={cn(
+            "h-2 cursor-ns-resize w-full",
+            theme === 'dark' ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-200 hover:bg-gray-300"
+          )}
+          title={translate('ui.resize')}
+        />
+      )}
     </div>
   );
 };

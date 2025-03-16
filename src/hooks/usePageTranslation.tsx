@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getHardcodedTranslation } from '../utils/hardcodedTranslations';
 
@@ -27,7 +27,18 @@ export function usePageTranslation<T>(
   const [translatedContent, setTranslatedContent] = useState<T>(content);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  useEffect(() => {
+  // Memoize the content to prevent unnecessary re-renders
+  const contentKey = useMemo(() => {
+    if (typeof content === 'string') {
+      return content;
+    } else if (content && typeof content === 'object') {
+      return JSON.stringify(content);
+    }
+    return '';
+  }, [content]);
+
+  // Create a memoized translation function
+  const translate = useCallback(async () => {
     // If the content is empty or the current language is the same as the source language,
     // use the original content
     if (!content || currentLanguage.code === sourceLanguage) {
@@ -36,83 +47,92 @@ export function usePageTranslation<T>(
       return;
     }
 
-    // Function to translate the content
-    const translate = async () => {
-      try {
-        setIsLoading(true);
+    try {
+      setIsLoading(true);
+      
+      // Check if the content is a string or an object
+      if (typeof content === 'string') {
+        // Check for hardcoded translation first
+        const hardcodedTranslation = getHardcodedTranslation(content, currentLanguage.code);
         
-        // Check if the content is a string or an object
-        if (typeof content === 'string') {
-          // Check for hardcoded translation first
-          const hardcodedTranslation = getHardcodedTranslation(content, currentLanguage.code);
-          
-          // If we have a hardcoded translation and it's different from the original content, use it
-          if (hardcodedTranslation !== content) {
-            setTranslatedContent(hardcodedTranslation as unknown as T);
-            setIsLoading(false);
-            return;
-          }
-          
-          // Check cache for existing translation
-          const cacheKey = createCacheKey(content, sourceLanguage, currentLanguage.code);
-          if (translationCache[cacheKey]) {
-            setTranslatedContent(translationCache[cacheKey] as unknown as T);
-            setIsLoading(false);
-            return;
-          }
-          
-          // If not in cache, translate and store in cache
-          const translated = await translateDynamic(content, sourceLanguage);
-          translationCache[cacheKey] = translated;
-          setTranslatedContent(translated as unknown as T);
-        } else if (content && typeof content === 'object') {
-          // Handle object content by translating each string property
-          const translatedObj = { ...content };
-          
-          for (const key in translatedObj) {
-            if (typeof translatedObj[key] === 'string') {
-              // Check for hardcoded translation first
-              const text = translatedObj[key] as string;
-              const hardcodedTranslation = getHardcodedTranslation(text, currentLanguage.code);
-              
-              // If we have a hardcoded translation and it's different from the original text, use it
-              if (hardcodedTranslation !== text) {
-                translatedObj[key] = hardcodedTranslation as any;
-                continue;
-              }
-              
-              // Check cache for existing translation
-              const cacheKey = createCacheKey(text, sourceLanguage, currentLanguage.code);
-              if (translationCache[cacheKey]) {
-                translatedObj[key] = translationCache[cacheKey] as any;
-                continue;
-              }
-              
-              // If not in cache, translate and store in cache
+        // If we have a hardcoded translation and it's different from the original content, use it
+        if (hardcodedTranslation !== content) {
+          setTranslatedContent(hardcodedTranslation as unknown as T);
+          return;
+        }
+        
+        // Check cache for existing translation
+        const cacheKey = createCacheKey(content, sourceLanguage, currentLanguage.code);
+        if (translationCache[cacheKey]) {
+          setTranslatedContent(translationCache[cacheKey] as unknown as T);
+          return;
+        }
+        
+        // If not in cache, translate and store in cache
+        const translated = await translateDynamic(content, sourceLanguage);
+        translationCache[cacheKey] = translated;
+        setTranslatedContent(translated as unknown as T);
+      } else if (content && typeof content === 'object') {
+        // Handle object content by translating each string property
+        const translatedObj = { ...content };
+        const translationPromises: Promise<void>[] = [];
+        
+        for (const key in translatedObj) {
+          if (typeof translatedObj[key] === 'string') {
+            const text = translatedObj[key] as string;
+            
+            // Check for hardcoded translation first
+            const hardcodedTranslation = getHardcodedTranslation(text, currentLanguage.code);
+            
+            // If we have a hardcoded translation and it's different from the original text, use it
+            if (hardcodedTranslation !== text) {
+              translatedObj[key] = hardcodedTranslation as any;
+              continue;
+            }
+            
+            // Check cache for existing translation
+            const cacheKey = createCacheKey(text, sourceLanguage, currentLanguage.code);
+            if (translationCache[cacheKey]) {
+              translatedObj[key] = translationCache[cacheKey] as any;
+              continue;
+            }
+            
+            // If not in cache, create a promise to translate and store in cache
+            const translationPromise = async () => {
               const translated = await translateDynamic(text, sourceLanguage);
               translationCache[cacheKey] = translated;
               translatedObj[key] = translated as any;
-            }
+            };
+            
+            translationPromises.push(translationPromise());
           }
-          
-          setTranslatedContent(translatedObj as T);
         }
-      } catch (error) {
-        console.error('Translation error:', error);
-        // If there's an error, use the original content
-        setTranslatedContent(content);
-      } finally {
-        setIsLoading(false);
+        
+        // Wait for all translations to complete
+        if (translationPromises.length > 0) {
+          await Promise.all(translationPromises);
+        }
+        
+        setTranslatedContent(translatedObj as T);
       }
-    };
+    } catch (error) {
+      console.error('Translation error:', error);
+      // If there's an error, use the original content
+      setTranslatedContent(content);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [content, contentKey, currentLanguage, sourceLanguage, translateDynamic]);
 
+  useEffect(() => {
     translate();
-  }, [content, currentLanguage, sourceLanguage, translateDynamic]);
+  }, [translate]);
 
-  return { 
+  // Memoize the return value to prevent unnecessary re-renders
+  return useMemo(() => ({ 
     translatedContent, 
     isLoading: isLoading || isTranslating 
-  };
+  }), [translatedContent, isLoading, isTranslating]);
 }
 
 /**
@@ -183,8 +203,9 @@ export function useTextTranslation(
     translate();
   }, [translate]);
 
-  return { 
+  // Memoize the return value to prevent unnecessary re-renders
+  return useMemo(() => ({ 
     translatedText, 
     isLoading: isLoading || isTranslating 
-  };
+  }), [translatedText, isLoading, isTranslating]);
 } 

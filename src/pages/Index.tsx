@@ -198,11 +198,13 @@ const Index = () => {
 
           {/* Right side - Chatbot */}
           <div className="space-y-6">
-            <ResponseDisplay 
-              response={response} 
-              loading={loading}
-              shouldPlayAudio={shouldPlayAudio}
-            />
+            <div className="h-[500px] min-h-[500px]">
+              <ResponseDisplay 
+                response={response} 
+                loading={loading}
+                shouldPlayAudio={shouldPlayAudio}
+              />
+            </div>
             
             <Tabs defaultValue="text" className={cn(
               "w-full rounded-xl overflow-hidden border shadow-sm",

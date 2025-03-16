@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,11 @@ const FloatingChatbot = () => {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [shouldPlayAudio, setShouldPlayAudio] = useState(false);
+  const [width, setWidth] = useState(380);
+  const [height, setHeight] = useState(600);
+  const resizeRef = useRef<HTMLDivElement>(null);
+  const startPosRef = useRef<{x: number, y: number} | null>(null);
+  const startSizeRef = useRef<{width: number, height: number}>({ width, height });
 
   // Open the chatbot on first visit after a delay
   useEffect(() => {
@@ -45,6 +50,46 @@ const FloatingChatbot = () => {
     setIsMinimized(!isMinimized);
   };
 
+  // Setup resize handlers
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      startPosRef.current = { x: e.clientX, y: e.clientY };
+      startSizeRef.current = { width, height };
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (startPosRef.current !== null) {
+        const deltaX = e.clientX - startPosRef.current.x;
+        const deltaY = e.clientY - startPosRef.current.y;
+        const newWidth = Math.max(300, startSizeRef.current.width + deltaX);
+        const newHeight = Math.max(400, startSizeRef.current.height + deltaY);
+        setWidth(newWidth);
+        setHeight(newHeight);
+      }
+    };
+
+    const handleMouseUp = () => {
+      startPosRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    const resizeHandle = resizeRef.current;
+    if (resizeHandle) {
+      resizeHandle.addEventListener('mousedown', handleMouseDown);
+    }
+
+    return () => {
+      if (resizeHandle) {
+        resizeHandle.removeEventListener('mousedown', handleMouseDown);
+      }
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [width, height]);
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* Chat button */}
@@ -65,9 +110,13 @@ const FloatingChatbot = () => {
         <div
           className={cn(
             "flex flex-col rounded-xl shadow-xl transition-all duration-300 transform",
-            isMinimized ? "w-72 h-16" : "w-[380px] h-[600px]",
+            isMinimized ? "w-72 h-16" : "",
             theme === 'dark' ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"
           )}
+          style={{ 
+            width: isMinimized ? '18rem' : `${width}px`, 
+            height: isMinimized ? '4rem' : `${height}px` 
+          }}
         >
           {/* Chat header */}
           <div
@@ -85,16 +134,16 @@ const FloatingChatbot = () => {
             </div>
             <div className="flex items-center space-x-2">
               {!isMinimized && (
-                <button onClick={toggleMinimize} className="text-gray-100 hover:text-white">
+                <button onClick={toggleMinimize} className="text-gray-100 hover:text-white" title={translate('ui.minimize')}>
                   <Minimize2 size={18} />
                 </button>
               )}
               {isMinimized && (
-                <button onClick={toggleMinimize} className="text-gray-100 hover:text-white">
+                <button onClick={toggleMinimize} className="text-gray-100 hover:text-white" title={translate('ui.maximize')}>
                   <Maximize2 size={18} />
                 </button>
               )}
-              <button onClick={toggleChat} className="text-gray-100 hover:text-white">
+              <button onClick={toggleChat} className="text-gray-100 hover:text-white" title={translate('ui.close')}>
                 <X size={18} />
               </button>
             </div>
@@ -102,62 +151,80 @@ const FloatingChatbot = () => {
 
           {/* Chat content */}
           {!isMinimized && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-hidden">
-                <ResponseDisplay
-                  response={response}
-                  loading={loading}
-                  shouldPlayAudio={shouldPlayAudio}
-                />
-              </div>
+            <>
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-hidden">
+                  <ResponseDisplay
+                    response={response}
+                    loading={loading}
+                    shouldPlayAudio={shouldPlayAudio}
+                  />
+                </div>
 
-              <div className="p-3 border-t">
-                <Tabs defaultValue="text" className={cn(
-                  "w-full",
-                  theme === 'dark' ? "border-gray-700" : "border-gray-200"
-                )}>
-                  <TabsList className={cn(
-                    "w-full grid grid-cols-2 h-10 mb-2",
-                    theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-100"
+                <div className="p-3 border-t">
+                  <Tabs defaultValue="text" className={cn(
+                    "w-full",
+                    theme === 'dark' ? "border-gray-700" : "border-gray-200"
                   )}>
-                    <TabsTrigger
-                      value="text"
-                      className={cn(
-                        "data-[state=active]:shadow-none rounded-none h-full",
-                        theme === 'dark'
-                          ? "data-[state=active]:bg-gray-600 data-[state=active]:text-white"
-                          : "data-[state=active]:bg-white"
-                      )}
-                    >
-                      {translate('input.text') || "Text"}
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="voice"
-                      className={cn(
-                        "data-[state=active]:shadow-none rounded-none h-full",
-                        theme === 'dark'
-                          ? "data-[state=active]:bg-gray-600 data-[state=active]:text-white"
-                          : "data-[state=active]:bg-white"
-                      )}
-                    >
-                      {translate('input.voice') || "Voice"}
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="text" className="mt-0">
-                    <TextInput
-                      onResponseReceived={handleResponseReceived}
-                      setLoading={setLoading}
-                    />
-                  </TabsContent>
-                  <TabsContent value="voice" className="mt-0 flex justify-center">
-                    <VoiceRecorder
-                      onResponseReceived={handleResponseReceived}
-                      setLoading={setLoading}
-                    />
-                  </TabsContent>
-                </Tabs>
+                    <TabsList className={cn(
+                      "w-full grid grid-cols-2 h-10 mb-2",
+                      theme === 'dark' ? "bg-gray-700" : "bg-loan-gray-100"
+                    )}>
+                      <TabsTrigger
+                        value="text"
+                        className={cn(
+                          "data-[state=active]:shadow-none rounded-none h-full",
+                          theme === 'dark'
+                            ? "data-[state=active]:bg-gray-600 data-[state=active]:text-white"
+                            : "data-[state=active]:bg-white"
+                        )}
+                      >
+                        {translate('input.text') || "Text"}
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="voice"
+                        className={cn(
+                          "data-[state=active]:shadow-none rounded-none h-full",
+                          theme === 'dark'
+                            ? "data-[state=active]:bg-gray-600 data-[state=active]:text-white"
+                            : "data-[state=active]:bg-white"
+                        )}
+                      >
+                        {translate('input.voice') || "Voice"}
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="text" className="mt-0">
+                      <TextInput
+                        onResponseReceived={handleResponseReceived}
+                        setLoading={setLoading}
+                      />
+                    </TabsContent>
+                    <TabsContent value="voice" className="mt-0 flex justify-center">
+                      <VoiceRecorder
+                        onResponseReceived={handleResponseReceived}
+                        setLoading={setLoading}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </div>
               </div>
-            </div>
+              
+              {/* Resize handle */}
+              <div 
+                ref={resizeRef}
+                className={cn(
+                  "w-6 h-6 absolute bottom-0 right-0 cursor-nwse-resize",
+                  theme === 'dark' ? "text-gray-600" : "text-gray-400"
+                )}
+                style={{
+                  backgroundImage: `linear-gradient(135deg, transparent 50%, ${theme === 'dark' ? '#4B5563' : '#D1D5DB'} 50%)`,
+                  backgroundSize: '10px 10px',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right bottom'
+                }}
+                title={translate('ui.resize')}
+              />
+            </>
           )}
         </div>
       )}
