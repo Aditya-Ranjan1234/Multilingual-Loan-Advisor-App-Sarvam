@@ -1,132 +1,178 @@
 # Multilingual Loan Advisor
 
-A multilingual chatbot application for providing loan information in multiple Indian languages.
+A multilingual loan advisory application developed for Track 2 of the Great Bengaluru Hackathon. This application helps users get loan-related information and advice in their preferred language.
 
-## Features
+![Alt text](images/hack.jpg)
 
-- Multilingual support for 11 Indian languages
-- Text and voice input
-- Text-to-speech for responses
-- Resizable chatbot interface
-- Conversation history with clear functionality
-- Dark/light theme support
-- Comprehensive logging system for debugging
+## 🌟 Features
 
-## API Architecture
+- **Multilingual Support**: Seamlessly switch between multiple Indian languages
+- **Voice Interaction**: Support for speech-to-text and text-to-speech in multiple languages
+- **Real-time Translation**: Dynamic content translation using advanced language models
+- **Responsive Design**: Works perfectly on both desktop and mobile devices
+- **Dark/Light Mode**: Customizable theme for better user experience
+- **AI-Powered Advice**: Intelligent loan recommendations using Sarvam AI
 
-This application uses a dual-API approach:
+## 🛠️ Technology Stack
 
-1. **Custom API** - Handles text-based interactions only
-   - Receives English text queries from the user (translated on the client-side)
-   - Processes the queries and returns English text responses (as plain text)
-   - Expects requests in the format: `{ "question": "your question here" }` (no language parameter needed)
-   - Responses are translated back to the user's language on the client-side
-   - Accessed directly via the `/ask` endpoint without a proxy to avoid CORS issues
+- **Frontend**: React with TypeScript
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Routing**: React Router
+- **State Management**: React Context API
+- **API Integration**: Fetch API with CORS support
 
-2. **Sarvam AI API** - Handles all audio-related operations
-   - Speech-to-Text (STT) - Converts user's voice recordings to text
-   - Text-to-Speech (TTS) - Converts bot responses to audio
-   - Translation - Translates text between languages
-   - Accessed via `/api/stt`, `/api/tts`, and `/api/translate` endpoints through a proxy
+## 📚 Project Structure
 
-## Logging System
-
-The application includes a comprehensive logging system for debugging:
-
-1. **Client-side Logging**:
-   - All API requests are logged with timestamps, endpoints, methods, and request bodies
-   - API responses are logged with status codes and response data
-   - Translation operations are logged with original and translated text
-   - Error handling includes detailed error logs
-   - Mock responses and fallbacks are clearly identified in logs
-
-2. **Server-side Logging**:
-   - All proxy requests are logged with detailed information
-   - Request headers and bodies are captured
-   - Response status codes and headers are logged
-   - Error handling includes comprehensive error logs
-   - Each proxy target (TTS, STT, Translation) has its own labeled logs
-
-3. **Log Format**:
-   - Client-side: Uses console groups with emoji indicators for different operations
-   - Server-side: Uses timestamp-prefixed logs with clear labels for each operation
-   - Binary data (like audio) is logged with type and size information
-
-To view logs:
-- Client-side: Open browser developer tools and check the console
-- Server-side: Check the terminal where the server is running
-
-## CORS-Safe Implementation
-
-This application avoids CORS issues by:
-
-1. Sending requests directly to the custom API without using credentials mode
-2. Translating user messages to English before sending to the custom API
-3. Translating API responses back to the user's language on the client-side
-4. Using a proxy server only for Sarvam AI API requests (audio-related operations)
-5. Implementing a fallback mechanism that tries different request modes:
-   - First attempts with standard 'cors' mode
-   - If blocked by CORS, falls back to 'no-cors' mode
-   - If both fail, uses intelligent mock responses based on the query
-   - All mock responses are translated to the user's language
-
-## Installation
-
-```bash
-# Install dependencies
-npm install
+```
+src/
+├── components/
+│   ├── FloatingChatbot/     # AI chatbot interface
+│   ├── LanguageSelector/    # Language switching component
+│   ├── MainLayout/          # Main application layout
+│   ├── ThemeToggle/        # Theme switching component
+│   └── VoiceRecorder/      # Voice input component
+├── contexts/
+│   ├── LanguageContext/    # Language state management
+│   └── ThemeContext/      # Theme state management
+├── services/
+│   ├── api.ts             # API integration
+│   └── sarvamAI.ts        # Sarvam AI service integration
+└── pages/
+    ├── Home/              # Landing page
+    ├── Loans/            # Loan information
+    ├── Calculator/       # Loan calculator
+    ├── About/           # About page
+    └── Contact/         # Contact information
 ```
 
-## Development
+## 🔌 API Integration
 
-```bash
-# Build the frontend
-npm run build
+### Sarvam AI API
+The Sarvam AI API provides advanced language processing capabilities for our application:
 
-# Start the proxy server and serve the application
-npm start
-```
+- **Speech-to-Text API**
+  - Converts voice input to text in multiple Indian languages
+  - Supports real-time transcription
+  - Handles multiple audio formats
 
-For development with hot-reloading:
+- **Text-to-Speech API**
+  - Converts text responses to natural-sounding speech
+  - Supports multiple Indian languages
+  - Provides voice customization options
 
-```bash
-# Start the frontend development server
-npm run dev
+- **Translation API**
+  - Translates content between Indian languages
+  - Maintains context and meaning during translation
+  - Supports real-time translation
 
-# In a separate terminal, start the proxy server
-npm run dev:server
-```
+### Custom Loan Advisory API
+Our custom API handles loan-related queries and provides intelligent responses:
 
-## Environment Variables
+- **Base Endpoint**: `/ask`
+- **Request Format**:
+  ```json
+  {
+    "question": "your question here"
+  }
+  ```
+- **Features**:
+  - Processes English text queries
+  - Returns contextual loan advice
+  - Integrates with translation services for multilingual support
 
-You can configure the API endpoint by setting the custom API URL in the ApiUrlContext:
+## 🚀 Getting Started
 
-```typescript
-// In src/contexts/ApiUrlContext.tsx
-const [customApiUrl, setCustomApiUrl] = useState<string>('https://your-custom-api.com');
-```
-
-## Deployment
-
-The application can be deployed to any static hosting service. Make sure to set up the proxy server to handle Sarvam API requests.
-
-## Troubleshooting
-
-If you encounter CORS issues:
-
-1. Check that the custom API URL is correctly set in ApiUrlContext and points to the base URL without any path
-2. Verify that the API endpoint is correctly set to `/ask` in the sendMessage function
-3. Make sure the request body only includes the `question` field (the API expects `{ "question": "your question here" }` without any language parameter)
-4. Make sure the fetchWithCORS function is properly handling CORS errors with fallback mechanisms
-5. Check the browser console for detailed error messages about CORS issues
-6. If using a custom API server, ensure it has proper CORS headers configured:
+1. Clone the repository:
+   ```bash
+   git clone [repository-url]
    ```
-   Access-Control-Allow-Origin: *
-   Access-Control-Allow-Methods: GET, POST, OPTIONS
-   Access-Control-Allow-Headers: Content-Type, Accept
+
+2. Install dependencies:
+   ```bash
+   cd multilingual-loan-sarvam
+   npm install
    ```
-7. Remember that even if CORS issues persist, the application will still function using intelligent mock responses
 
-## License
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   # Add your API keys and endpoints
+   ```
 
-MIT
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+## 🔧 Configuration
+
+Create a `.env` file with the following variables:
+```env
+VITE_SARVAM_API_KEY=your_api_key_here
+VITE_SARVAM_API_ENDPOINT=your_endpoint_here
+VITE_CUSTOM_API_ENDPOINT=your_custom_api_endpoint
+```
+
+## 🌐 Supported Languages
+
+- English (en-IN)
+- Hindi (hi-IN)
+- Kannada (kn-IN)
+- Tamil (ta-IN)
+- Telugu (te-IN)
+- Malayalam (ml-IN)
+- Bengali (bn-IN)
+- Marathi (mr-IN)
+- Gujarati (gu-IN)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+<p align="center">
+  <img src="images/front.png" height="200">
+  <img src="images/front2.png" height="200">
+</p>
+
+## 📄 License
+
+This project is licensed under the GNU General Public License v3.0. This means:
+
+- You can freely use, modify, and distribute this software
+- Any modifications must also be open source under GPL-3.0
+- You must include the original copyright notice
+- No warranty is provided
+
+For more details, see the [LICENSE](LICENSE) file.
+
+## 🏆 Great Bengaluru Hackathon - Track 2
+
+This project was developed as part of Track 2 of the Great Bengaluru Hackathon, which focused on:
+- Creating innovative solutions for financial inclusion
+- Leveraging technology to break language barriers
+- Making financial services accessible to all Indians
+- Promoting digital literacy and financial awareness
+
+## 👥 Team
+
+- Aditya Ranjan
+- Gnanendra Naidu N
+- Mihir Shriniwas Arya
+
+## 🙏 Acknowledgments
+
+- Sarvam AI for providing the AI and language processing capabilities
+- Great Bengaluru Hackathon organizers
+- All contributors and supporters
+
+## 📞 Support
+
+For any questions or issues:
+- Open an issue in the GitHub repository
+- Contact the development team
+- Check the documentation for common solutions
