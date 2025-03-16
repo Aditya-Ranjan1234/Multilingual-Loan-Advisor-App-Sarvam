@@ -267,7 +267,7 @@ export const submitTextQuery = async (
     console.log('API response:', data);
     
     // Get the response text from the answer field
-    const responseText = data.answer || data.response || "I'm sorry, I couldn't process your request.";
+    const responseText = data || "I'm sorry, I couldn't process your request.";
     
     // Translate response back to user's language if needed
     const translatedResponse = language.code === 'en' 
@@ -398,7 +398,7 @@ export const submitAudioQuery = async (
     console.log('API response:', data);
     
     // Get the response text from the answer field
-    const responseText = data.answer || data.response || "I'm sorry, I couldn't process your request.";
+    const responseText = data || "I'm sorry, I couldn't process your request.";
     
     // Translate response back to user's language if needed
     const translatedResponse = language.code === 'en' 
